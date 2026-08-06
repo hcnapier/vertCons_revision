@@ -53,42 +53,50 @@ colnames(binomPvalMat) <- c("Human", paste("Node", seq(0,17), sep = ""))
 rownames(binomPvalMat) <- totalCellTypeRegions$CellType
 
 ## 1.2 Run binomial test ----
-for(currNode in totalNodeRegions$Node){
-  currNodeName <- totalNodeRegions$name[which(totalNodeRegions$Node == currNode)]
-  print(currNodeName)
-  currNodeRegions <- regions %>%
-    filter(Node == currNode)
-  numerators <- currNodeRegions$nRegions - currNodeRegions$nMapped
-  denominator <- sum(totalCellTypeRegions$nRegions) - totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)]  
-  nullPrs <- numerators/denominator
-  backgroundPrMat[,currNodeName] <- nullPrs
-  nTrials = totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)]
-  nSuccesses = currNodeRegions$nMapped
-  for(i in 1:nCellTypes){
-    currCellType <- totalCellTypeRegions$CellType[i]
-    test <- binom.test(nSuccesses[i], nTrials, nullPrs[i], alternative = "two.sided")
-    binomPrMat[currCellType, currNodeName] <- test$estimate
-    binomPvalMat[currCellType, currNodeName] <- test$p.value
+  for(currNode in combMapped$Node){
+    currNodeName <- totalNodeRegions$name[which(totalNodeRegions$Node == currNode)]
+    print(currNodeName)
+    currNodeRegions <- regions %>%
+      filter(Node == currNode)
+    numerators <- currNodeRegions$nRegions - currNodeRegions$nMapped
+    denominator <- sum(totalCellTypeRegions$nRegions) - totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)]  
+    nullPrs <- numerators/denominator
+    backgroundPrMat[,currNodeName] <- nullPrs
+    nTrials = totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)]
+    nSuccesses = currNodeRegions$nMapped
+    for(i in 1:nCellTypes){
+      currCellType <- totalCellTypeRegions$CellType[i]
+      test <- binom.test(nSuccesses[i], nTrials, nullPrs[i], alternative = "two.sided")
+      binomPrMat[currCellType, currNodeName] <- test$estimate
+      binomPvalMat[currCellType, currNodeName] <- test$p.value
+    }
   }
-}
 binomSigMat <- binomPvalMat < 0.05
 sum(binomSigMat)
 
-## 1.3 Calculate confidence intervals for binomial probabilities ----
-# Is the probability at a given node different from the background probability at the 95% CI?
-# Using Wald method to approximate 95% confidence intervals. Interdependence of probabilities for each group makes this just an estimate. 
-# Make a matrix containing the number of trials for each node for each cell type
-nMat <- regions %>%
-  select(CellType, nRegions, Node) %>%
-  pivot_wider(
-    names_from = Node,
-    values_from = nRegions
-  ) 
-nMat <- data.frame(nMat)
-rownames(nMat) <- nMat$CellType
-nMat$CellType <- NULL
-nMat <- as.matrix(nMat)
-colnames(nMat) <- nodeNames
+## 1.3 Combine neurons ----
+### Excitatory ----
+exNeurMap <- getCombMapped(regions, "excitatoryNeuron")
+exNeur_binom <- subtypeBinomTest(exNeurMap, totalNodeRegions = totalNodeRegions, totalCellTypeRegions = totalCellTypeRegions, nodeNames)
+### Inhibitory ----
+inhNeurMap <- getCombMapped(regions, "inhibitoryNeuron")
+inhNeur_binom <- subtypeBinomTest(inhNeurMap, totalNodeRegions = totalNodeRegions, totalCellTypeRegions = totalCellTypeRegions, nodeNames)
+### Combine for plotting ----
+neuron_binom <- rbind(inhNeur_binom, exNeur_binom)
+
+## 1.4 Combine smooth muscle ----
+smoothMuscleMap <- getCombMapped(regions, "smoothMuscle")
+smoothMuscle_binom <- subtypeBinomTest(smoothMuscleMap, totalNodeRegions = totalNodeRegions, totalCellTypeRegions = totalCellTypeRegions, nodeNames)
+
+## 1.5 Combine cardiomyocytes ----
+### Developing ----
+devCardioMap <- getCombMapped(regions, "Cardiomyocyte.developing")
+devCardio_binom <- subtypeBinomTest(devCardioMap, totalNodeRegions = totalNodeRegions, totalCellTypeRegions = totalCellTypeRegions, nodeNames)
+### Adult ----
+adCardioMap <- getCombMapped(regions, "Cardiomyocyte.adult")
+adCardio_binom <- subtypeBinomTest(adCardioMap, totalNodeRegions = totalNodeRegions, totalCellTypeRegions = totalCellTypeRegions, nodeNames)
+### Combine for plotting ----
+cardio_binom <- rbind(devCardio_binom, adCardio_binom)
 
 
 # 2.0 Compute enrichment ----
@@ -105,6 +113,17 @@ nMapMat$CellType <- NULL
 nMapMat <- as.matrix(nMapMat)
 colnames(nMapMat) <- nodeNames
 
+nMat <- regions %>%
+  select(CellType, nRegions, Node) %>%
+  pivot_wider(
+    names_from = Node,
+    values_from = nRegions
+  ) 
+nMat <- data.frame(nMat)
+rownames(nMat) <- nMat$CellType
+nMat$CellType <- NULL
+nMat <- as.matrix(nMat)
+colnames(nMat) <- nodeNames
 enrichMat <- (nMapMat/nMat)/backgroundPrMat
 
 
@@ -271,5 +290,58 @@ ggplot(cardio, aes(x = node, y = combZscore, group = 1, color = cellType)) +
        color = "Cell Type", 
        x = "Node", 
        y = "Z Score") + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+
+## 5.2 Binomial enrichment line plots ----
+### Neurons ----
+labels = c("excitatoryNeuron" = "Excitatory Neuron", 
+           "inhibitoryNeuron" = "Inhibitory Neuron")
+ggplot(neuron_binom, aes(x = nodeName, y = enrich, group = 1, color = cellType)) + 
+  geom_line() + 
+  scale_x_discrete(limits = rev(nodeNames)) +
+  theme_minimal() + 
+  geom_point(
+    data = filter(neuron_binom, sig),
+    aes(x = nodeName[sig], y = enrich),
+    shape = 8,
+    size = 2,
+    color = "black", 
+    position = position_nudge(y = 0.3 * diff(range(neuron_binom$enrich)))) +
+  geom_hline(yintercept = 1, linetype = "longdash") + 
+  scale_color_discrete(labels = labels) +
+  facet_wrap(~cellType, 
+             nrow = 2, 
+             ncol = 1, 
+             labeller = as_labeller(labels)) + 
+  labs(title = "Binomial Enrichment, Neurons", 
+       color = "Cell Type", 
+       x = "Node", 
+       y = "Enrichment") + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+
+### Cardiomyocytes ----
+labels = c("Cardiomyocyte.developing" = "Developing Cardiomyocyte", 
+           "Cardiomyocyte.adult" = "Adult Cardiomyocyte")
+ggplot(cardio_binom, aes(x = nodeName, y = enrich, group = 1, color = cellType)) + 
+  geom_line() + 
+  scale_x_discrete(limits = rev(nodeNames)) +
+  theme_minimal() + 
+  geom_point(
+    data = filter(cardio_binom, sig),
+    aes(x = nodeName[sig], y = enrich),
+    shape = 8,
+    size = 2,
+    color = "black", 
+    position = position_nudge(y = 0.3 * diff(range(cardio_binom$enrich)))) +
+  geom_hline(yintercept = 1, linetype = "longdash") + 
+  scale_color_discrete(labels = labels) +
+  facet_wrap(~cellType, 
+             nrow = 2, 
+             ncol = 1, 
+             labeller = as_labeller(labels)) + 
+  labs(title = "Binomial Enrichment, Cardiomyocytes", 
+       color = "Cell Type", 
+       x = "Node", 
+       y = "Enrichment") + 
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 
