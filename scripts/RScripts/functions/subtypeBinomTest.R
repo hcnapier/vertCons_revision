@@ -1,4 +1,6 @@
-subtypeBinomTest <- function(subtypeDF, totalNodeRegions, totalCellTypeRegions, nodeNames){
+require(dplyr)
+require(stringr)
+subtypeBinomTest <- function(subtypeDF, totalNodeRegions, totalCellTypeRegions, nodeNames, MYA = NULL){
   outDF <- data.frame(Node = subtypeDF$Node)
   for(currNode in subtypeDF$Node){
     currNodeName <- totalNodeRegions$name[which(totalNodeRegions$Node == currNode)]
@@ -18,5 +20,15 @@ subtypeBinomTest <- function(subtypeDF, totalNodeRegions, totalCellTypeRegions, 
   outDF$cellType <- subtypeDF$cellType
   outDF$nodeName <- nodeNames
   outDF$sig <- outDF$pval <= 0.05
+  outDF$stage <- NA
+  cellType <- subtypeDF$cellType %>% unique()
+  if(str_detect(tolower(cellType), "developing")){
+    outDF$stage <- "developing"
+  }else if(str_detect(tolower(cellType), "adult")){
+    outDF$stage <- "adult"
+  }
+  if(nrow(outDF) == 15){
+    outDF$MYA <- MYA
+  }
   return(outDF)
 }

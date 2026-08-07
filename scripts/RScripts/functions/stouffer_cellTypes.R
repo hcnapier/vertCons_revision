@@ -3,7 +3,7 @@
 # 8/6/26
 
 require(dplyr)
-stouffer_cellTypes <- function(fullDF, pattern){
+stouffer_cellTypes <- function(fullDF, pattern, MYA = NULL){
   tmp <- fullDF %>%
     filter(str_detect(cellType, pattern))
   nSubtypes <- length(unique(tmp$cellType))
@@ -14,5 +14,8 @@ stouffer_cellTypes <- function(fullDF, pattern){
   outDF$combZscore <- outDF$Sum/sqrt(nSubtypes)
   outDF$Sum <- NULL
   outDF$cellType <- pattern
+  if(nrow(outDF) == 15){
+    outDF$MYA <- MYA
+  }
   return(outDF)
 }
