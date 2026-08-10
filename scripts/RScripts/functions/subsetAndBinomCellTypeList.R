@@ -1,15 +1,24 @@
-subsetAndBinomCellTypeList <- function(cellTypeList, stageList = NULL, fullDF, totalNodeRegions, totalCellTypeRegions, nodeNames, MYA = NA){
+subsetAndBinomCellTypeList <- function(cellTypeList, stageList = NULL, fullDF, totalNodeRegions, totalCellTypeRegions, nodeNames, MYA = NA, logic = "AND", groupName = NULL){
   mapsList <- list()
     for(cellType in cellTypeList){
       if(length(stageList) > 0){
-        for(stage in stageList){
+        if(logic == "AND"){
           name <- paste0(c(cellType, stage), collapse = "_")
-          mapsList[[name]] <- getCombMapped(fullDF, c(cellType, stage))
+          for(stage in stageList){
+            mapsList[[name]] <- getCombMapped(fullDF, c(cellType, stage))
+          }
+        }else if(logic == "OR"){
+          for(stage in stageList){
+            mapsList[[name]] <- getCombMapped(fullDF, c(cellType, stage), logic = "OR", groupName = groupName)
+          }
         }
       }else{
         name <- cellType
-        mapsList[[name]] <- getCombMapped(fullDF, cellType)
-        print(paste(name, " found mapping regions", sep = ""))
+        if(logic == "AND"){
+          mapsList[[name]] <- getCombMapped(fullDF, cellType)
+        }else if(logic == "OR"){
+          mapsList[[name]] <- getCombMapped(fullDF, cellType, logic = "OR", groupName = groupName)
+        }
       }
     }
   for(currName in names(mapsList)){

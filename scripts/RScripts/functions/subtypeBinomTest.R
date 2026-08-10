@@ -16,6 +16,10 @@ subtypeBinomTest <- function(subtypeDF, totalNodeRegions, totalCellTypeRegions, 
     outDF$estimate[which(outDF$Node == currNode)] <- test$estimate
     outDF$pval[which(outDF$Node == currNode)] <- test$p.value
     outDF$enrich[which(outDF$Node == currNode)] <- (nSuccesses/nTrials)/nullPr
+    outDF$upperCI[which(outDF$Node == currNode)] <- test$conf.int[2]
+    outDF$lowerCI[which(outDF$Node == currNode)] <- test$conf.int[1]
+    outDF$enrUpperCI[which(outDF$Node == currNode)] <- test$conf.int[2]/test$null.value[[1]]
+    outDF$enrLowerCI[which(outDF$Node == currNode)] <- test$conf.int[1]/test$null.value[[1]]
   } 
   outDF$cellType <- subtypeDF$cellType
   outDF$nodeName <- nodeNames
