@@ -1,6 +1,6 @@
 require(dplyr)
 require(stringr)
-getCombMapped <- function(fullDF, pattern, logic = "AND", groupName = NULL){
+getCombMapped <- function(fullDF, pattern, groupName, logic = "AND"){
   if(length(pattern) == 1){
     tmp <- fullDF %>%
       filter(str_detect(tolower(CellType), tolower(pattern)))
@@ -8,10 +8,10 @@ getCombMapped <- function(fullDF, pattern, logic = "AND", groupName = NULL){
   }else if(length(pattern) > 1){
     keywords <- tolower(pattern)
     if(logic == "AND"){
-    pattern <- paste0("(?=.*", keywords, ")", collapse = "")
-    tmp <- fullDF %>%
-      filter(grepl(pattern, tolower(CellType), perl = T))
-    cellType <- paste0(keywords, collapse = "_")
+      pattern <- paste0("(?=.*", keywords, ")", collapse = "")
+      tmp <- fullDF %>%
+        filter(grepl(pattern, tolower(CellType), perl = T))
+      cellType <- paste0(keywords, collapse = "_")
     }else if(logic == "OR"){
       pattern <- paste0(keywords, collapse = "|")
       tmp <- fullDF %>%
@@ -24,5 +24,6 @@ getCombMapped <- function(fullDF, pattern, logic = "AND", groupName = NULL){
     group_by(Node) %>%
     summarize(mappedSum = sum(nMapped))
   combMapped$cellType <- cellType
+  combMapped$groupName <- groupName
   return(combMapped)
 }
