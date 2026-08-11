@@ -1,7 +1,16 @@
 # 0.0 Setup ----
 ## 0.1 Load packages ----
+require(dplyr)
+require(tidyr)
+
 ## 0.2 Load data ----
-readRDS("totalCellTypeRegions.rds")
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+totalCellTypeRegions <- readRDS("totalCellTypeRegions.rds")
+regions <- readRDS("regions.rds")
+
+## 0.3 Source functions ----
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/functions")
+source("subsetAndBinomCellTypeList.R")
 
 
 # 1.0 Combine nodes -1-3 ----
@@ -23,7 +32,9 @@ nMapMat_combNodes <- as.matrix(nMapMat_combNodes)
 nMapLong_combNodes <- as.data.frame(as.table(nMapMat_combNodes))
 names(nMapLong_combNodes) <- c("CellType", "Node", "nMapped")
 nMapLong_combNodes$nRegions <- rep(totalCellTypeRegions$nRegions, 15)
-
+# Save 
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+saveRDS(nMapLong_combNodes, "nMapLong_combNodes.rds")
 
 # 2.0 All cells binomial enrichment ----
 ## 2.1 Set up data ----
@@ -31,6 +42,8 @@ totalNodeRegions_combNodes <- nMapLong_combNodes %>%
   select(Node, nMapped) %>%
   group_by(Node) %>%
   summarize(nRegions = sum(nMapped))
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+saveRDS(totalNodeRegions_combNodes, "totalNodeRegions_combNodes.rds")
 
 ## 2.2 Set up output matrices ----
 nNodes <- nrow(totalNodeRegions_combNodes)
