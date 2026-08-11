@@ -1,3 +1,6 @@
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/functions")
+source("getCombMapped.R")
+source("subtypeBinomTest.R")
 subsetAndBinomCellTypeList <- function(cellTypeList, stageList = NULL, fullDF, totalNodeRegions, totalCellTypeRegions, nodeNames, MYA = NA, groupName){
   mapsList <- list()
     for(cellType in cellTypeList){

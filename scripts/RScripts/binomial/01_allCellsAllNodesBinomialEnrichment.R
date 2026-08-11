@@ -11,11 +11,7 @@ require(tidyr)
 require(ggplot2)
 require(stringr)
 
-## 0.2 Source functions
-setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/functions")
-source("stouffer_cellTypes.R")
-
-## 0.3 Load data ----
+## 0.2 Load data ----
 setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/data")
 regions <- read.csv("enrichments_forR.csv", header = T)
 
@@ -28,7 +24,15 @@ totalNodeRegions <- regions %>%
   select(Node, nMapped) %>%
   group_by(Node) %>%
   summarize(nRegions = sum(nMapped))
-
+## Cell type regions
+cellTypeRegions <- regions$nRegions %>% unique()
+cellTypes <- regions$CellType %>% unique()
+totalCellTypeRegions <- data.frame(CellType = cellTypes, nRegions = cellTypeRegions)
+## Save 
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+saveRDS(totalCellTypeRegions, "totalCellTypeRegions.rds")
+saveRDS(totalNodeRegions, "totalNodeRegions.rds")
+saveRDS(regions, "regions.rds")
 
 # 1.0 Compute binomial probabilities ----
 ## 1.1 Set up output matrix ----
@@ -97,5 +101,10 @@ nMat <- as.matrix(nMat)
 colnames(nMat) <- nodeNames
 enrichMat <- (nMapMat/nMat)/backgroundPrMat
 
-
+# Save output ----
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+saveRDS(enrichMat, "enrichMat.rds")
+saveRDS(binomPrMat, "binomPrMat.rds")
+saveRDS(binomPvalMat, "binomPvalMat.rds")
+saveRDS(binomSigMat, "binomSigMat.rds")
 

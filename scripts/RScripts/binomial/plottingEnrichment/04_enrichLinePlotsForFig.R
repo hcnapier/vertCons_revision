@@ -22,7 +22,7 @@ innateImmune_combined_enrichPlot <- ggplot(innateImmuneComb_binom_combNodes, aes
     axis.text.x  = element_blank(), 
     ) 
 innateImmune_combined_enrichPlot
-ggsave("innateImmune_combined_enrichPlot.png", plot = innateImmune_combined_enrichPlot, bg = "transparent", width = 9, height = 1.25)      
+ggsave("innateImmune_combined_enrichPlot.png", plot = innateImmune_combined_enrichPlot, bg = "transparent", width = 9, height = 2)      
 
 # Neurons ----
 neuron_combined_enrichPlot <- ggplot(neuronComb_binom_combNodes, aes(x = MYA, y = enrich)) + 
@@ -46,11 +46,12 @@ neuron_combined_enrichPlot <- ggplot(neuronComb_binom_combNodes, aes(x = MYA, y 
     axis.text.x  = element_blank(), 
   ) 
 neuron_combined_enrichPlot
-ggsave("neuron_combined_enrichPlot.png", plot = neuron_combined_enrichPlot, bg = "transparent", width = 9, height = 1.25)
+ggsave("neuron_combined_enrichPlot.png", plot = neuron_combined_enrichPlot, bg = "transparent", width = 9, height = 2)
 
 # Muscle ----
 muscle_combined_enrichPlot <- ggplot(muscleComb_binom_combNodes, aes(x = MYA, y = enrich)) + 
-  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 1) +
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI, fill = "CI"), alpha = 1, show.legend = TRUE) +
+  scale_fill_manual(values = c("CI" = "darkgray")) +
   geom_line(linewidth = 1.2) + 
   theme_classic() + 
   scale_x_reverse() +
@@ -61,7 +62,6 @@ muscle_combined_enrichPlot <- ggplot(muscleComb_binom_combNodes, aes(x = MYA, y 
   theme(
     panel.background = element_rect(fill = "transparent", color = NA), # Transparent panel
     plot.background = element_rect(fill = "transparent", color = NA),  # Transparent background
-    legend.position = "none", 
     axis.text.y = element_text(size = 10, face = "bold"), 
     axis.line.y = element_line(linewidth = 0.75),
     axis.title = element_blank(), 
@@ -70,6 +70,6 @@ muscle_combined_enrichPlot <- ggplot(muscleComb_binom_combNodes, aes(x = MYA, y 
     axis.text.x  = element_blank(), 
   ) 
 muscle_combined_enrichPlot
-ggsave("muscle_combined_enrichPlot.png", plot = muscle_combined_enrichPlot, bg = "transparent", width = 9, height = 1.25)
+ggsave("muscle_combined_enrichPlot.png", plot = muscle_combined_enrichPlot, bg = "transparent", width = 9, height = 2)
 
 
