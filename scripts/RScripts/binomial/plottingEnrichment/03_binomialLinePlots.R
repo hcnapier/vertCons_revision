@@ -91,9 +91,27 @@ ggplot(neuron_binom_combNodes, aes(x = MYA, y = enrich)) +
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) +
+  ylim(0,2) + 
   facet_wrap(~cellType, 
              ncol = 1, 
              labeller = as_labeller(labels)) 
+
+### Combined neuron group ----
+ggplot(neuronComb_binom_combNodes, aes(x = MYA, y = enrich)) + 
+  geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "gray", alpha = 0.5) +
+  geom_line() + 
+  theme_minimal() + 
+  geom_point(aes(shape = sig), size = 3) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
+                     labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
+  labs(title = "Binomial Enrichment, Neurons", 
+       x = "Million Years Ago (MYA)", 
+       y = "Enrichment", 
+       shape = paste0("p < ", 0.05)) + 
+  ylim(0,2) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
+  scale_color_manual(values = c("black", "darkgray"))
 
 
 ## 2.2 Muscle ----
@@ -116,6 +134,7 @@ ggplot(muscle_binom_combNodes, aes(x = MYA, y = enrich, color = cellType)) +
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
+  ylim(0,2) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 
 ### Facet wrap ----
@@ -137,10 +156,28 @@ ggplot(muscle_binom_combNodes, aes(x = MYA, y = enrich)) +
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
+  ylim(0,2.3) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
   facet_wrap(~cellType, 
              ncol = 2, 
              labeller = as_labeller(labels)) 
+
+### Combined Muscle group ----
+ggplot(muscleComb_binom_combNodes, aes(x = MYA, y = enrich)) + 
+  geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "gray", alpha = 0.5) +
+  geom_line() + 
+  theme_minimal() + 
+  geom_point(aes(shape = sig), size = 3) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
+                     labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
+  labs(title = "Binomial Enrichment, Muscle", 
+       x = "Million Years Ago (MYA)", 
+       y = "Enrichment", 
+       shape = paste0("p < ", 0.05)) + 
+  ylim(0,2) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
+  scale_color_manual(values = c("black", "darkgray"))
 
 
 ## 2.3 Innate immune ----
@@ -163,6 +200,7 @@ ggplot(innateImmune_binom_combNodes, aes(x = MYA, y = enrich, color = cellType))
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
+  ylim(0,2) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 
 ### Facet wrapped ----
@@ -184,7 +222,26 @@ ggplot(innateImmune_binom_combNodes, aes(x = MYA, y = enrich)) +
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
+  ylim(0,2) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
   facet_wrap(~cellType, 
              ncol = 2, 
              labeller = as_labeller(labels)) 
+
+### Combined innate immune group ----
+ggplot(innateImmuneComb_binom_combNodes, aes(x = MYA, y = enrich)) + 
+  geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "gray", alpha = 0.5) +
+  geom_line() + 
+  theme_minimal() + 
+  geom_point(aes(shape = sig), size = 3) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
+                     labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
+  labs(title = "Binomial Enrichment, Innate Immune Cells", 
+       x = "Million Years Ago (MYA)", 
+       y = "Enrichment", 
+       shape = paste0("p < ", 0.05)) + 
+  ylim(0,2) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
+  scale_color_manual(values = c("black", "darkgray"))
+
