@@ -1,4 +1,3 @@
-
 # 1.0 All cells and nodes ----
 ## 1.1 Binomial test estimates heatmap ----
 pheatmap(binomPrMat, 
