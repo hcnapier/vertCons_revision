@@ -1,6 +1,9 @@
 require(dplyr)
 require(stringr)
 getCombSuccess <- function(fullDF, pattern, groupName, logic = "AND"){
+  if ("nMapped" %in% colnames(fullDF)) {
+    colnames(fullDF)[colnames(fullDF) == "nMapped"] <- "nSuccess"
+  }
   if(length(pattern) == 1){
     tmp <- fullDF %>%
       filter(str_detect(tolower(CellType), tolower(pattern)))
