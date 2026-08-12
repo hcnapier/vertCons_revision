@@ -79,9 +79,10 @@ labels = c("excitatoryneuron" = "Excitatory Neuron",
            "inhibitoryneuron" = "Inhibitory Neuron")
 ggplot(neuron_binom_combNodes, aes(x = MYA, y = enrich)) + 
   geom_hline(yintercept = 1, linetype = "longdash") + 
-  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "gray", alpha = 0.5) +
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 0.8) +
   geom_line(linewidth = 1) + 
   theme_minimal() + 
+  scale_x_reverse() +
   geom_point(aes(shape = sig), size = 3) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +

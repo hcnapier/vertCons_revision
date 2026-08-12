@@ -5,8 +5,8 @@ subsetAndBinomCellTypeList <- function(cellTypeList, stageList = NULL, fullDF, t
   mapsList <- list()
     for(cellType in cellTypeList){
       if(length(stageList) > 0){
-        name <- paste0(c(cellType, stage), collapse = "_")
         for(stage in stageList){
+          name <- paste0(c(cellType, stage), collapse = "_")
           mapsList[[name]] <- getCombMapped(fullDF, c(cellType, stage), groupName = groupName)
         }
       }else{
