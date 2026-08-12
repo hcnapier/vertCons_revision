@@ -1,6 +1,6 @@
 require(dplyr)
 require(stringr)
-getCombMapped <- function(fullDF, pattern, groupName, logic = "AND"){
+getCombSuccess <- function(fullDF, pattern, groupName, logic = "AND"){
   if(length(pattern) == 1){
     tmp <- fullDF %>%
       filter(str_detect(tolower(CellType), tolower(pattern)))
@@ -19,11 +19,11 @@ getCombMapped <- function(fullDF, pattern, groupName, logic = "AND"){
       cellType <- groupName
     }
   }
-  combMapped <- tmp %>%
-    select(Node, nMapped) %>%
+  combSuccess <- tmp %>%
+    select(Node, nSuccess) %>%
     group_by(Node) %>%
-    summarize(mappedSum = sum(nMapped))
-  combMapped$cellType <- cellType
-  combMapped$groupName <- groupName
-  return(combMapped)
+    summarize(successSum = sum(nSuccess))
+  combSuccess$cellType <- cellType
+  combSuccess$groupName <- groupName
+  return(combSuccess)
 }

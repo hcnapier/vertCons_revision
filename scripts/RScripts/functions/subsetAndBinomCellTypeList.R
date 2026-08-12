@@ -1,5 +1,5 @@
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/functions")
-source("getCombMapped.R")
+source("getCombSuccess.R")
 source("subtypeBinomTest.R")
 subsetAndBinomCellTypeList <- function(cellTypeList, stageList = NULL, fullDF, totalNodeRegions, totalCellTypeRegions, nodeNames, MYA = NA, groupName){
   mapsList <- list()
@@ -7,11 +7,11 @@ subsetAndBinomCellTypeList <- function(cellTypeList, stageList = NULL, fullDF, t
       if(length(stageList) > 0){
         for(stage in stageList){
           name <- paste0(c(cellType, stage), collapse = "_")
-          mapsList[[name]] <- getCombMapped(fullDF, c(cellType, stage), groupName = groupName)
+          mapsList[[name]] <- getCombSuccess(fullDF, c(cellType, stage), groupName = groupName)
         }
       }else{
         name <- cellType
-        mapsList[[name]] <- getCombMapped(fullDF, cellType, groupName) 
+        mapsList[[name]] <- getCombSuccess(fullDF, cellType, groupName) 
       }
     }
   for(currName in names(mapsList)){

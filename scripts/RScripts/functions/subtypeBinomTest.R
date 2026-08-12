@@ -7,11 +7,11 @@ subtypeBinomTest <- function(subtypeDF, totalNodeRegions, totalCellTypeRegions, 
     print(currNodeName)
     currNodeRegions <- subtypeDF %>%
       filter(Node == currNode)
-    numerator <- sum(subtypeDF$mappedSum) - subtypeDF$mappedSum[which(subtypeDF$Node == currNode)] # All mapped regions for cell type of interest - mapped regions in current node 
+    numerator <- sum(subtypeDF$successSum) - subtypeDF$successSum[which(subtypeDF$Node == currNode)] # All success regions for cell type of interest - success regions in current node 
     denominator <- sum(totalCellTypeRegions$nRegions) - totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)]  # All regions - total regions in node of interest
     nullPr <- numerator/denominator # successes over trials with current node held out
     nTrials = totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)]
-    nSuccesses = subtypeDF$mappedSum[which(subtypeDF$Node == currNode)]
+    nSuccesses = subtypeDF$successSum[which(subtypeDF$Node == currNode)]
     test <- binom.test(nSuccesses, nTrials, nullPr, alternative = "two.sided")
     outDF$estimate[which(outDF$Node == currNode)] <- test$estimate
     outDF$pval[which(outDF$Node == currNode)] <- test$p.value
