@@ -1,4 +1,5 @@
-# 01_binomialEnrichment
+# 01_binomialInnovation
+# Innovation = gains
 # Christi's original calculations carry a Gaussian assumption. A Gaussian may not fit the data well, but a binomial may be more appropriate. 
 # Calculate the probabilities that a given node has enrichment for each cell type option relative to the baseline enrichment (= total number of regions for that cell type over all cell type regions, calculated with the current node held out)
 
