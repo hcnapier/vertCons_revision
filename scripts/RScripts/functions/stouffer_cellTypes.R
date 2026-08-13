@@ -14,7 +14,7 @@ stouffer_cellTypes <- function(fullDF, pattern, MYA = NULL){
   outDF$combZscore <- outDF$Sum/sqrt(nSubtypes)
   outDF$Sum <- NULL
   outDF$cellType <- pattern
-  if(nrow(outDF) == 15){
+  if(length(MYA) != 0){
     outDF$MYA <- MYA
   }
   return(outDF)
