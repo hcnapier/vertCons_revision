@@ -104,12 +104,21 @@ saveRDS(innateImmuneComb_binom_combNodes, "innateImmuneComb_binom_combNodes.rds"
 
 
 ## 1.6 Placenta ----
-neuronTypes <- c("excitatoryneuron", "inhibitoryneuron")
+placentaTypes <- c("placentalNeuron", 
+                   "fibroPlacental", 
+                   "macrophagePlacental", 
+                   "extravillousTrophoblast", 
+                   "syncitiotrophoblastCytotrophoblast", 
+                   "endothelialPlacental")
 ### Separate subtypes ----
-neuronGroupBinom_combNodes <- subsetAndBinomCellTypeList(cellTypeList = neuronTypes,
+placentaGroupBinom_combNodes <- subsetAndBinomCellTypeList(cellTypeList = placentaTypes,
                                                          fullDF = nMapLong_combNodes, 
                                                          totalNodeRegions = totalNodeRegions_combNodes, 
                                                          totalCellTypeRegions = totalCellTypeRegions, 
                                                          nodeNames = nodeNames, 
                                                          MYA = MYA, 
-                                                         groupName = "Neurons")
+                                                         groupName = "Placenta")
+#### Combine for plotting
+placenta_binom_combNodes <- do.call(rbind, placentaGroupBinom_combNodes)
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+saveRDS(placenta_binom_combNodes, "placenta_binom_combNodes.rds")
