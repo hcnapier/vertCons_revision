@@ -101,3 +101,15 @@ innateImmuneComb_binom_combNodes <- subtypeBinomTest(innateImmuneCombDF,
                                                MYA = MYA)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 saveRDS(innateImmuneComb_binom_combNodes, "innateImmuneComb_binom_combNodes.rds")
+
+
+## 1.6 Placenta ----
+neuronTypes <- c("excitatoryneuron", "inhibitoryneuron")
+### Separate subtypes ----
+neuronGroupBinom_combNodes <- subsetAndBinomCellTypeList(cellTypeList = neuronTypes,
+                                                         fullDF = nMapLong_combNodes, 
+                                                         totalNodeRegions = totalNodeRegions_combNodes, 
+                                                         totalCellTypeRegions = totalCellTypeRegions, 
+                                                         nodeNames = nodeNames, 
+                                                         MYA = MYA, 
+                                                         groupName = "Neurons")

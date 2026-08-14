@@ -20,7 +20,7 @@ speciesLosses$X.1 <- NULL
 speciesLosses$X.2 <- NULL
 speciesLosses$X.3 <- NULL 
 speciesLosses$X <- NULL
-MYA_losses <- c(10, 20, 30, 45, 75, 85, 87, 95, 100, 160, 180, 320, 350, 415, 430)
+MYA_losses <- c(10, 15, 20, 30, 45, 75, 85, 87, 95, 100, 160, 180, 320, 350, 415, 430)
 
 # 0.3 Source functions ----
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/functions")
