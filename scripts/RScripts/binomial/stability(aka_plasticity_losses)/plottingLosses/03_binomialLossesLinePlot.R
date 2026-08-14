@@ -1,55 +1,81 @@
 # 1.0 All Nodes----
 ## 1.1 Neurons ----
+neuron_binom_loss$MYA <- MYA_losses
 labels = c("excitatoryneuron" = "Excitatory Neuron", 
            "inhibitoryneuron" = "Inhibitory Neuron")
-ggplot(neuron_binom, aes(x = nodeName, y = enrich, group = 1, color = cellType)) + 
-  geom_line() + 
-  scale_x_discrete(limits = rev(nodeNames_full)) +
-  theme_minimal() + 
-  geom_point(
-    data = filter(neuron_binom, sig),
-    aes(x = nodeName[sig], y = enrich),
-    shape = 8,
-    size = 2,
-    color = "black", 
-    position = position_nudge(y = 0.3 * diff(range(neuron_binom$enrich)))) +
+ggplot(neuron_binom_loss, aes(x = MYA, y = enrich)) + 
   geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 0.8) +
+  geom_line(linewidth = 1) + 
+  theme_minimal() + 
+  scale_x_reverse() +
+  geom_point(aes(shape = sig), size = 3) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
+                     labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_color_discrete(labels = labels) +
+  labs(title = "Loss, Binomial Enrichment, Neurons",
+       x = "Million Years Ago (MYA)", 
+       y = "Enrichment", 
+       shape = paste0("p < ", 0.05)) + 
+  ylim(0,5.5) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) +
   facet_wrap(~cellType, 
-             nrow = 2, 
              ncol = 1, 
-             labeller = as_labeller(labels)) + 
-  labs(title = "Binomial Enrichment, Neurons", 
-       color = "Cell Type", 
-       x = "Node", 
-       y = "Enrichment") + 
-  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+             labeller = as_labeller(labels)) 
 
 ## 1.2 Cardiomyocytes ----
-labels = c("cardiomyocyte_developing" = "Developing Cardiomyocyte", 
-           "cardiomyocyte_adult" = "Adult Cardiomyocyte")
-ggplot(cardio_binom, aes(x = nodeName, y = enrich, group = 1, color = cellType)) + 
-  geom_path() + 
-  scale_x_discrete(limits = rev(nodeNames)) +
-  theme_minimal() + 
-  geom_point(
-    data = filter(cardio_binom, sig),
-    aes(x = nodeName[sig], y = enrich),
-    shape = 8,
-    size = 2,
-    color = "black", 
-    position = position_nudge(y = 0.3 * diff(range(cardio_binom$enrich)))) +
+### Facet wrap ----
+cardio_binom_loss$MYA <- MYA_losses
+labels = c("cardiomyocyte_adult" = "Cardiomyocyte, Adult", 
+           "cardiomyocyte_developing" = "Cardiomyocyte, Developing")
+ggplot(cardio_binom_loss, aes(x = MYA, y = enrich)) + 
   geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 0.8) +
+  geom_line(linewidth = 1) + 
+  theme_minimal() + 
+  scale_x_reverse() +
+  geom_point(aes(shape = sig), size = 3) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
+                     labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_color_discrete(labels = labels) +
+  labs(title = "Loss, Binomial Enrichment, Cardiomyocytes",
+       x = "Million Years Ago (MYA)", 
+       y = "Enrichment", 
+       shape = paste0("p < ", 0.05)) + 
+  ylim(0,5.5) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
   facet_wrap(~cellType, 
-             nrow = 2, 
              ncol = 1, 
-             labeller = as_labeller(labels)) + 
-  labs(title = "Binomial Enrichment, Cardiomyocytes", 
-       color = "Cell Type", 
-       x = "Node", 
-       y = "Enrichment") + 
-  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+             labeller = as_labeller(labels)) 
+
+## 1.3 All Muscle ----
+muscle_binom_loss$MYA <- MYA_losses
+labels = c("cardiomyocyte_adult" = "Cardiomyocyte, Adult", 
+           "cardiomyocyte_developing" = "Cardiomyocyte, Developing", 
+           "skeletalmyocyte_adult" = "Skeletal Myocyte, Adult", 
+           "skeletalmyocyte_developing" = "Skeletal Myocyte, Developing", 
+           "smoothmuscle_adult" = "Smooth Muscle, Adult")
+ggplot(muscle_binom_loss, aes(x = MYA, y = enrich)) + 
+  geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 0.8) +
+  geom_line(linewidth = 1) + 
+  theme_minimal() + 
+  scale_x_reverse() +
+  geom_point(aes(shape = sig), size = 3) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
+                     labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
+  scale_color_discrete(labels = labels) +
+  labs(title = "Loss, Binomial Enrichment, Muscle",
+       x = "Million Years Ago (MYA)", 
+       y = "Enrichment", 
+       shape = paste0("p < ", 0.05)) + 
+  ylim(0,5.5) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
+  facet_wrap(~cellType, 
+             ncol = 2, 
+             labeller = as_labeller(labels)) 
+
+
 
 
 # 2.0 Combined nodes ----
@@ -87,7 +113,7 @@ ggplot(neuron_binom_combNodes, aes(x = MYA, y = enrich)) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_color_discrete(labels = labels) +
-  labs(title = "Gains, Binomial Enrichment, Neurons",
+  labs(title = "Binomial Enrichment, Neurons",
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
@@ -130,7 +156,7 @@ ggplot(muscle_binom_combNodes, aes(x = MYA, y = enrich, color = cellType)) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_color_discrete(labels = labels) +
-  labs(title = "Gains, Binomial Enrichment, Muscle", 
+  labs(title = "Binomial Enrichment, Muscle", 
        color = "Cell Type", 
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
@@ -149,12 +175,11 @@ ggplot(muscle_binom_combNodes, aes(x = MYA, y = enrich)) +
   geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "gray", alpha = 0.5) +
   geom_line(linewidth = 1) + 
   theme_minimal() + 
-  scale_x_reverse() +
   geom_point(aes(shape = sig), size = 3) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_color_discrete(labels = labels) +
-  labs(title = "Gains, Binomial Enrichment, Muscle",
+  labs(title = "Binomial Enrichment, Muscle",
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
@@ -220,12 +245,11 @@ ggplot(innateImmune_binom_combNodes, aes(x = MYA, y = enrich)) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_color_discrete(labels = labels) +
-  labs(title = "Gains, Binomial Enrichment, Innate Immune Cells", 
+  labs(title = "Binomial Enrichment, Innate Immune Cells", 
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
   ylim(0,2) +
-  scale_x_reverse() +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
   facet_wrap(~cellType, 
              ncol = 2, 

@@ -198,13 +198,14 @@ ggplot(neurons_combNodes, aes(x = MYA, y = combZscore, group = 1, color = cellTy
            alpha = 0.3) + 
   geom_line() + 
   theme_minimal() + 
+  scale_x_reverse() +
   scale_y_continuous(limits = c(-6, 6)) + 
   scale_color_discrete(labels = labels) +
   facet_wrap(~cellType, 
              nrow = 2, 
              ncol = 1, 
              labeller = as_labeller(labels)) + 
-  labs(title = "Z Score Enrichment, Neurons", 
+  labs(title = "Gains, Z Score Enrichment, Neurons", 
        color = "Cell Type", 
        x = "Millions of Years Ago (MYA)", 
        y = "Z Score") + 
@@ -225,9 +226,10 @@ ggplot(smoothMuscleComb_combNodes, aes(x = MYA, y = combZscore, group = 1)) +
            alpha = 0.3) + 
   geom_line() + 
   theme_minimal() + 
+  scale_x_reverse() +
   scale_y_continuous(limits = c(-6, 6)) + 
   scale_color_discrete(labels = labels) +
-  labs(title = "Z Score Enrichment, Smooth Muscle", 
+  labs(title = "Gains, Z Score Enrichment, Smooth Muscle", 
        x = "Millions of Years Ago (MYA)", 
        y = "Z Score") + 
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) 
@@ -256,7 +258,7 @@ ggplot(cardio_combNodes, aes(x = MYA, y = combZscore, group = 1, color = cellTyp
              nrow = 2, 
              ncol = 1, 
              labeller = as_labeller(labels)) + 
-  labs(title = "Z Score Enrichment, Cardiomyocytes", 
+  labs(title = "Gains, Z Score Enrichment, Cardiomyocytes", 
        color = "Cell Type", 
        x = "Millions of Years Ago (MYA)", 
        y = "Z Score") + 
