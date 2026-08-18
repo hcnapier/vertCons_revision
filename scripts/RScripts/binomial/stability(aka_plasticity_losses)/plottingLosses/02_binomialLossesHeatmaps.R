@@ -41,3 +41,4 @@ pheatmap(enrichMat_loss,
          main = "Losses, Binomial Enrichments (Normalized by Node)", 
          fontsize_row = 3, 
          scale = "column")
+

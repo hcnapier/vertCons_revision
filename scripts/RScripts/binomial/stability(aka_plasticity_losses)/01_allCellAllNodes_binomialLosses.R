@@ -46,6 +46,7 @@ nodeLosses <- full_join(avNodeLosses, speciesLosses)
 nodeLosses <- nodeLosses %>%
   select(nSuccess, Node, CellType, nNodeRegions)
 nodeLosses <- nodeLosses %>% distinct()
+nodeLosses$propSuccess <- nodeLosses$nSuccess/nodeLosses$nNodeRegions
 nodeLosses$nodeName <- paste("Node",nodeLosses$Node, sep = "")
 nodeNames_losses <- nodeLosses$nodeName %>% unique()
 nodeLosses$nRegions <- nodeLosses$nNodeRegions
