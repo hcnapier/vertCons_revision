@@ -98,6 +98,34 @@ ggplot(innateImmune_binom_loss, aes(x = MYA, y = enrich)) +
              ncol = 2, 
              labeller = as_labeller(labels)) 
 
+### Placenta ----
+labels = c("placentalNeuron" = "Placental Neuron", 
+           "fibroPlacental" = "Placental Fibroblast", 
+           "macrophagePlacental" = "Placental Macrophage", 
+           "extravillousTrophoblast" = "Extravillous Trophoblast", 
+           "syncitiotrophoblastCytotrophoblast" = "Syncitiotrophoblast and Cytotrophoblast", 
+           "endothelialPlacental" = "Placental Endothelial")
+ggplot(placenta_binom_loss, aes(x = MYA, y = enrich)) + 
+  geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 0.8) +
+  geom_line(linewidth = 1) + 
+  theme_minimal() + 
+  scale_x_reverse() +
+  geom_point(aes(shape = sig), size = 3) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
+                     labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
+  scale_color_discrete(labels = labels) +
+  labs(title = "Loss, Binomial Enrichment, Placenta",
+       x = "Million Years Ago (MYA)", 
+       y = "Enrichment", 
+       shape = paste0("p < ", 0.05)) + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
+  facet_wrap(~cellType, 
+             ncol = 2, 
+             labeller = as_labeller(labels)) 
+
+
+
 ## NO FACET ----
 ### Neurons ----
 neuron_binom_loss$MYA <- MYA_losses
