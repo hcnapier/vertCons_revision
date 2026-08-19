@@ -1,7 +1,7 @@
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/functions")
 source("getCombSuccess.R")
 source("subtypeBinomTest.R")
-subsetAndBinomCellTypeList <- function(cellTypeList, stageList = NULL, fullDF, totalNodeRegions, totalCellTypeRegions, nodeNames, MYA = NA, groupName, logic = "AND"){
+subsetAndBinomCellTypeList <- function(cellTypeList, stageList = NULL, fullDF, totalNodeRegions, totalCellTypeRegions = NULL, totalNodeLosses = NULL, nodeNames, MYA = NA, groupName, logic = "AND", type = "gain"){
   mapsList <- list()
     for(cellType in cellTypeList){
       if(length(stageList) > 0){
@@ -20,5 +20,9 @@ subsetAndBinomCellTypeList <- function(cellTypeList, stageList = NULL, fullDF, t
       print(paste("removing ", name, sep = ""))
     }
   }
-  outListBinom <- lapply(mapsList, subtypeBinomTest, totalNodeRegions = totalNodeRegions, totalCellTypeRegions = totalCellTypeRegions, nodeNames, MYA)
+  if(type == "gain"){
+    outListBinom <- lapply(mapsList, subtypeBinomTest, totalNodeRegions = totalNodeRegions, totalCellTypeRegions = totalCellTypeRegions, nodeNames, MYA)
+  }else if(type == "loss"){
+    outListBinom <- lapply(mapsList, lossBinomTest, totalNodeRegions = totalNodeRegions, totalNodeLosses = totalNodeLosses, nodeNames = nodeNames, MYA = MYA)
+  }
 }

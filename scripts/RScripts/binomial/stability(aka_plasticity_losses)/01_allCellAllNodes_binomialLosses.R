@@ -51,6 +51,8 @@ nodeLosses$nodeName <- paste("Node",nodeLosses$Node, sep = "")
 nodeNames_losses <- nodeLosses$nodeName %>% unique()
 nodeLosses$nRegions <- nodeLosses$nNodeRegions
 colOrder <- c("Node1", "Node2", "Node3", "Node4", "Node5", "Node6", "Node7", "Node8", "Node9", "Node10", "Node11", "Node12", "Node13", "Node14", "Node15", "Node16")
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+saveRDS(nodeLosses, "nodeLosses.rds")
 
 # Get total node regions 
 totalNodeRegions_losses <- nodeLosses %>%
@@ -68,6 +70,12 @@ totalCellTypeRegions_losses <- nodeLosses %>%
   summarize(nRegions = sum(nNodeRegions))
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 saveRDS(totalCellTypeRegions_losses, "totalCellTypeRegions_losses.rds")
+
+# Get total losses per node
+totalNodeLosses <- nodeLosses %>%
+  select(Node, nSuccess) %>%
+  group_by(Node) %>%
+  summarize(nLosses = sum(nSuccess))
 
 
 # 1.0 Binomial test, all cell types ----
@@ -94,6 +102,10 @@ for(currNode in nodes){
     filter(Node == currNode)
   numerators <- currNodeRegions$nRegions - currNodeRegions$nSuccess
   denominator <- sum(totalCellTypeRegions_losses$nRegions) - totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)]  
+  ## TODO: Finish this 
+  numerator <- totalNodeLosses$nLosses[which(Node == currNode)] - sum(currNodeRegions$successSum) # All success regions for node of interest - success regions in current cell type
+  denominator <- totalNodeRegions$nRegions[which(Node == currNode)] - subtypeDF$nRegions[which(subtypeDF$Node == currNode)]  # All regions - total regions in node of interest
+  
   nullPrs <- numerators/denominator
   nullPrMat[,currNodeName] <- nullPrs
   nTrials = totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)]
