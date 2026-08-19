@@ -1,4 +1,6 @@
 # 1.0 All cells and nodes ----
+colOrder <- c("Node1", "Node2", "Node3", "Node4", "Node5", "Node6", "Node7", "Node8", "Node9", "Node10", "Node11", "Node12", "Node13", "Node14", "Node15", "Node16")
+
 ## 1.1 Binomial test estimates heatmap ----
 pheatmap(binomPrMat_loss, 
          cluster_rows = FALSE, 
@@ -30,6 +32,7 @@ pheatmap(binomSigMat_loss,
          fontsize_row = 3)
 
 ## 1.4 Binomial enrichments ----
+enrichMat_loss <- enrichMat_loss[, colOrder]
 pheatmap(enrichMat_loss, 
          cluster_rows = FALSE, 
          cluster_cols = FALSE,
