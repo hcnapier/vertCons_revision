@@ -5,12 +5,10 @@ lossBinomTest <- function(subtypeDF, totalNodeRegions, totalNodeLosses, nodeName
   for(currNode in subtypeDF$Node){
     currNodeName <- totalNodeRegions$name[which(totalNodeRegions$Node == currNode)]
     print(currNodeName)
-    currNodeRegions <- subtypeDF %>%
-      filter(Node == currNode)
-    numerator <- totalNodeLosses$nLosses[which(totalNodeLosses$Node == currNode)] - sum(currNodeRegions$successSum) # All success regions for node of interest - success regions in current cell type
+    numerator <- totalNodeLosses$nLosses[which(totalNodeLosses$Node == currNode)] - subtypeDF$successSum[which(subtypeDF$Node == currNode)] # All success regions for node of interest - success regions in current cell type
     denominator <- totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)] - subtypeDF$nRegions[which(subtypeDF$Node == currNode)]  # All regions - total regions in node of interest
-    nullPr <- numerator/denominator # successes over trials with current node held out
-    nTrials = totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)]
+    nullPr <- numerator/denominator # successes over trials with current cell type held out
+    nTrials = subtypeDF$nRegions[which(subtypeDF$Node == currNode)]
     nSuccesses = subtypeDF$successSum[which(subtypeDF$Node == currNode)]
     test <- binom.test(nSuccesses, nTrials, nullPr, alternative = "two.sided")
     outDF$estimate[which(outDF$Node == currNode)] <- test$estimate
@@ -20,6 +18,11 @@ lossBinomTest <- function(subtypeDF, totalNodeRegions, totalNodeLosses, nodeName
     outDF$lowerCI[which(outDF$Node == currNode)] <- test$conf.int[1]
     outDF$enrUpperCI[which(outDF$Node == currNode)] <- test$conf.int[2]/test$null.value[[1]]
     outDF$enrLowerCI[which(outDF$Node == currNode)] <- test$conf.int[1]/test$null.value[[1]]
+    outDF$nullPR[which(outDF$Node == currNode)] <- nullPr
+    outDF$num[which(outDF$Node == currNode)] <- numerator
+    outDF$den[which(outDF$Node == currNode)] <- denominator
+    outDF$nSuccess[which(outDF$Node == currNode)] <- nSuccesses
+    outDF$nTrials[which(outDF$Node == currNode)] <- nTrials
   } 
   outDF$groupName <- subtypeDF$groupName
   outDF$cellType <- subtypeDF$cellType

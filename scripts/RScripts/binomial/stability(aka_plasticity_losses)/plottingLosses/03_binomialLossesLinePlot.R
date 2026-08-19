@@ -17,7 +17,6 @@ ggplot(neuron_binom_loss, aes(x = MYA, y = enrich)) +
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
-  ylim(0,5.5) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) +
   facet_wrap(~cellType, 
              ncol = 1, 
@@ -42,7 +41,6 @@ ggplot(cardio_binom_loss, aes(x = MYA, y = enrich)) +
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
-  ylim(0,5.5) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
   facet_wrap(~cellType, 
              ncol = 1, 
@@ -69,13 +67,36 @@ ggplot(muscle_binom_loss, aes(x = MYA, y = enrich)) +
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
-  ylim(0,5.5) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
   facet_wrap(~cellType, 
              ncol = 2, 
              labeller = as_labeller(labels)) 
 
-
+## 1.3 All Innate Immune ----
+innateImmune_binom_loss$MYA <- MYA_losses
+labels = c("macrophage_adult" = "Macrophage, Adult", 
+           "macrophage_developing" = "Macrophage, Developing", 
+           "mast_adult" = "Mast Cell, Adult", 
+           "microglia_adult" = "Microglia, Adult", 
+           "naturalkillert_adult" = "Natural Killer T Cell, Adult")
+ggplot(innateImmune_binom_loss, aes(x = MYA, y = enrich)) + 
+  geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 0.8) +
+  geom_line(linewidth = 1) + 
+  theme_minimal() + 
+  scale_x_reverse() +
+  geom_point(aes(shape = sig), size = 3) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
+                     labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
+  scale_color_discrete(labels = labels) +
+  labs(title = "Loss, Binomial Enrichment, Muscle",
+       x = "Million Years Ago (MYA)", 
+       y = "Enrichment", 
+       shape = paste0("p < ", 0.05)) + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
+  facet_wrap(~cellType, 
+             ncol = 2, 
+             labeller = as_labeller(labels)) 
 
 
 # 2.0 Combined nodes ----

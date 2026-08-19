@@ -98,23 +98,19 @@ nodes <- nodeLosses$Node %>% unique
 for(currNode in nodes){
   currNodeName <- totalNodeRegions_losses$name[which(totalNodeRegions_losses$Node == currNode)]
   print(currNodeName)
-  currNodeRegions <- nodeLosses %>%
-    filter(Node == currNode)
-  numerators <- currNodeRegions$nRegions - currNodeRegions$nSuccess
-  denominator <- sum(totalCellTypeRegions_losses$nRegions) - totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)]  
-  ## TODO: Finish this 
-  numerator <- totalNodeLosses$nLosses[which(Node == currNode)] - sum(currNodeRegions$successSum) # All success regions for node of interest - success regions in current cell type
-  denominator <- totalNodeRegions$nRegions[which(Node == currNode)] - subtypeDF$nRegions[which(subtypeDF$Node == currNode)]  # All regions - total regions in node of interest
-  
-  nullPrs <- numerators/denominator
-  nullPrMat[,currNodeName] <- nullPrs
   nTrials = totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)]
-  nSuccesses = currNodeRegions$nSuccess
   for(i in 1:nCellTypes){
     currCellType <- totalCellTypeRegions_losses$CellType[i]
-    test <- binom.test(nSuccesses[i], nTrials, nullPrs[i], alternative = "two.sided")
-    binomPrMat_loss[currCellType, currNodeName] <- test$estimate
-    binomPvalMat_loss[currCellType, currNodeName] <- test$p.value
+    cellTypeDF <- nodeLosses %>%
+      filter(CellType == currCellType)
+    numerator <- totalNodeLosses$nLosses[which(totalNodeLosses$Node == currNode)] - cellTypeDF$nSuccess[which(cellTypeDF$Node == currNode)] # All success regions for node of interest - success regions in current cell type
+    denominator <- totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)] - cellTypeDF$nRegions[which(cellTypeDF$Node == currNode)]  # All regions - total regions in node of interest
+    nSuccesses = cellTypeDF$nSuccess[which(cellTypeDF$Node == currNode)]
+    nullPr <- numerator/denominator
+    nullPrMat[currCellType,currNodeName] <- nullPr
+    test <- binom.test(nSuccesses, nTrials, nullPr, alternative = "two.sided")
+    binomPrMat_loss[currCellType, currNodeName] <- test$estimate[[1]]
+    binomPvalMat_loss[currCellType, currNodeName] <- test$p.value[[1]]
   }
 }
 binomSigMat_loss <- binomPvalMat_loss < 0.05
@@ -155,3 +151,16 @@ nMat_loss <- as.matrix(nMat_loss)
 colnames(nMat_loss) <- nodeNames_losses
 enrichMat_loss <- (lossMat/nMat_loss)/nullPrMat
 enrichMat_loss <- enrichMat_loss[, colOrder]
+
+## DEBUG ----
+nodeLosses %>%
+  filter(Node == 1) %>%
+  filter(str_detect(CellType, "excitatoryNeuron")) %>%
+  select(nSuccess) %>%
+  sum()
+
+nodeLosses %>%
+  filter(Node == 1) %>%
+  filter(str_detect(CellType, "excitatoryNeuron")) %>%
+  select(nRegions) %>%
+  sum()
