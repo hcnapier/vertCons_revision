@@ -22,10 +22,11 @@ neuronTypes <- c("excitatoryneuron", "inhibitoryneuron")
 neuronGroupBinom_loss <- subsetAndBinomCellTypeList(cellTypeList = neuronTypes, 
                                                fullDF = nodeLosses, 
                                                totalNodeRegions = totalNodeRegions_losses,
-                                               totalCellTypeRegions = totalCellTypeRegions_losses,
+                                               totalNodeLosses = totalNodeLosses,
                                                nodeNames = nodeNames_losses, 
                                                groupName = "Neurons", 
-                                               MYA = MYA_losses)
+                                               MYA = MYA_losses, 
+                                               type = "loss")
 # Combine for plotting
 neuron_binom_loss <- do.call(rbind, neuronGroupBinom_loss)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
@@ -38,10 +39,11 @@ muscleGroupBinom_loss <- subsetAndBinomCellTypeList(cellTypeList = muscleTypes,
                                                stageList = stageList, 
                                                fullDF = nodeLosses, 
                                                totalNodeRegions = totalNodeRegions_losses, 
-                                               totalCellTypeRegions = totalCellTypeRegions_losses, 
+                                               totalNodeLosses = totalNodeLosses, 
                                                nodeNames = nodeNames_losses, 
                                                groupName = "Muscle", 
-                                               MYA = MYA_losses)
+                                               MYA = MYA_losses, 
+                                               type = "loss")
 ### Combine for plotting
 muscle_binom_loss <- do.call(rbind, muscleGroupBinom_loss)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
@@ -58,9 +60,10 @@ immuneGroupBinom_loss <- subsetAndBinomCellTypeList(cellTypeList = immuneTypes,
                                                stageList = stageList, 
                                                fullDF = nodeLosses, 
                                                totalNodeRegions = totalNodeRegions_losses, 
-                                               totalCellTypeRegions = totalCellTypeRegions_losses, 
+                                               totalNodeLosses = totalNodeLosses, 
                                                nodeNames = nodeNames_losses, 
-                                               groupName = "InnateImmune")
+                                               groupName = "InnateImmune", 
+                                               type = "loss")
 ### Combine for plotting
 innateImmune_binom_loss <- do.call(rbind, immuneGroupBinom_loss)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")

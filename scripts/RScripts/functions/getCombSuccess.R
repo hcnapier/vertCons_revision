@@ -26,7 +26,12 @@ getCombSuccess <- function(fullDF, pattern, groupName, logic = "AND"){
     select(Node, nSuccess) %>%
     group_by(Node) %>%
     summarize(successSum = sum(nSuccess))
+  nRegions <- tmp %>%
+    select(Node, nRegions) %>%
+    group_by(Node) %>%
+    summarize(nRegions = sum(nRegions))
   combSuccess$cellType <- cellType
   combSuccess$groupName <- groupName
+  combSuccess$nRegions <- nRegions$nRegions
   return(combSuccess)
 }
