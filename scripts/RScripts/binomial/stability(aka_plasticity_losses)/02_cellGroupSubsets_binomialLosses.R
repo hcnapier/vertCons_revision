@@ -68,3 +68,25 @@ immuneGroupBinom_loss <- subsetAndBinomCellTypeList(cellTypeList = immuneTypes,
 innateImmune_binom_loss <- do.call(rbind, immuneGroupBinom_loss)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 saveRDS(innateImmune_binom_loss, "innateImmune_binom_loss")
+
+
+## 1.6 Placenta ----
+placentaTypes <- c("placentalNeuron", 
+                   "fibroPlacental", 
+                   "macrophagePlacental", 
+                   "extravillousTrophoblast", 
+                   "syncitiotrophoblastCytotrophoblast", 
+                   "endothelialPlacental")
+### Separate subtypes ----
+placentaGroupBinom_loss <- subsetAndBinomCellTypeList(cellTypeList = placentaTypes,
+                                                           fullDF = nodeLosses, 
+                                                           totalNodeRegions = totalNodeRegions_losses, 
+                                                           totalNodeLosses = totalNodeLosses, 
+                                                           nodeNames = nodeNames_losses, 
+                                                           MYA = MYA_losses, 
+                                                           groupName = "Placenta", 
+                                                           type = "loss")
+#### Combine for plotting
+placenta_binom_loss <- do.call(rbind, placentaGroupBinom_combNodes)
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+saveRDS(placenta_binom_loss, "placenta_binom_loss.rds")
