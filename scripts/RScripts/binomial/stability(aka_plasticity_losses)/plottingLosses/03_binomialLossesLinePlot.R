@@ -99,6 +99,7 @@ ggplot(innateImmune_binom_loss, aes(x = MYA, y = enrich)) +
              labeller = as_labeller(labels)) 
 
 ### Placenta ----
+placenta_binom_loss$MYA <- MYA_losses
 labels = c("placentalNeuron" = "Placental Neuron", 
            "fibroPlacental" = "Placental Fibroblast", 
            "macrophagePlacental" = "Placental Macrophage", 
@@ -107,6 +108,7 @@ labels = c("placentalNeuron" = "Placental Neuron",
            "endothelialPlacental" = "Placental Endothelial")
 ggplot(placenta_binom_loss, aes(x = MYA, y = enrich)) + 
   geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_vline(xintercept = 100, linetype = "dotted") + 
   geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 0.8) +
   geom_line(linewidth = 1) + 
   theme_minimal() + 

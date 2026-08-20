@@ -87,6 +87,6 @@ placentaGroupBinom_loss <- subsetAndBinomCellTypeList(cellTypeList = placentaTyp
                                                            groupName = "Placenta", 
                                                            type = "loss")
 #### Combine for plotting
-placenta_binom_loss <- do.call(rbind, placentaGroupBinom_combNodes)
+placenta_binom_loss <- do.call(rbind, placentaGroupBinom_loss)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 saveRDS(placenta_binom_loss, "placenta_binom_loss.rds")

@@ -2,13 +2,22 @@ require(dplyr)
 require(stringr)
 lossBinomTest <- function(subtypeDF, totalNodeRegions, totalNodeLosses, nodeNames, MYA = NULL){
   outDF <- data.frame(Node = subtypeDF$Node)
-  for(currNode in subtypeDF$Node){
+  nodes <- subtypeDF$Node
+  for(currNode in nodes){
     currNodeName <- totalNodeRegions$name[which(totalNodeRegions$Node == currNode)]
     print(currNodeName)
+    olderNodes <- nodes[which(nodes >= currNode)]
+    nTrials <- subtypeDF %>%
+      filter(Node %in% olderNodes) %>%
+      select(nRegions) %>%
+      sum()
+    totalOlderNodeRegions <- totalNodeRegions %>%
+      filter(Node %in% olderNodes) %>%
+      select(nRegions) %>%
+      sum()
     numerator <- totalNodeLosses$nLosses[which(totalNodeLosses$Node == currNode)] - subtypeDF$successSum[which(subtypeDF$Node == currNode)] # All success regions for node of interest - success regions in current cell type
-    denominator <- totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)] - subtypeDF$nRegions[which(subtypeDF$Node == currNode)]  # All regions - total regions in node of interest
+    denominator <- totalOlderNodeRegions - subtypeDF$nRegions[which(subtypeDF$Node == currNode)]  # All regions at current node or older - total regions in cell type of interest
     nullPr <- numerator/denominator # successes over trials with current cell type held out
-    nTrials = subtypeDF$nRegions[which(subtypeDF$Node == currNode)]
     nSuccesses = subtypeDF$successSum[which(subtypeDF$Node == currNode)]
     test <- binom.test(nSuccesses, nTrials, nullPr, alternative = "two.sided")
     outDF$estimate[which(outDF$Node == currNode)] <- test$estimate
