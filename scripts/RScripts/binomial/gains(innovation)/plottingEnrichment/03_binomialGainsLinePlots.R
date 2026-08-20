@@ -255,9 +255,11 @@ labels = c("placentalNeuron" = "Placental Neuron",
            "fibroPlacental" = "Placental Fibroblast", 
            "macrophagePlacental" = "Placental Macrophage", 
            "extravillousTrophoblast" = "Extravillous Trophoblast", 
-           "syncitiotrophoblastCytotrophoblast" = "Syncitiotrophoblast and Cytotrophoblast")
+           "syncitiotrophoblastCytotrophoblast" = "Syncitiotrophoblast and Cytotrophoblast", 
+           "endothelialPlacental" = "Placental Endothelial")
 ggplot(placenta_binom_combNodes, aes(x = MYA, y = enrich)) + 
   geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_vline(xintercept = 100, linetype = "dotted") + 
   geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 0.8) +
   geom_line(linewidth = 1, color = "black") + 
   theme_minimal() + 
