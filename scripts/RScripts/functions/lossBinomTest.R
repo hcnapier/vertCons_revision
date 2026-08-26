@@ -6,17 +6,10 @@ lossBinomTest <- function(subtypeDF, totalNodeRegions, totalNodeLosses, nodeName
   for(currNode in nodes){
     currNodeName <- totalNodeRegions$name[which(totalNodeRegions$Node == currNode)]
     print(currNodeName)
-    olderNodes <- nodes[which(nodes >= currNode)]
-    nTrials <- subtypeDF %>%
-      filter(Node %in% olderNodes) %>%
-      select(nRegions) %>%
-      sum()
-    totalOlderNodeRegions <- totalNodeRegions %>%
-      filter(Node %in% olderNodes) %>%
-      select(nRegions) %>%
-      sum()
+    nTrials <- subtypeDF$nRegions[which(subtypeDF$Node == currNode)]
+    totalOlderNodeRegions <- totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)]
     numerator <- totalNodeLosses$nLosses[which(totalNodeLosses$Node == currNode)] - subtypeDF$successSum[which(subtypeDF$Node == currNode)] # All success regions for node of interest - success regions in current cell type
-    denominator <- totalOlderNodeRegions - subtypeDF$nRegions[which(subtypeDF$Node == currNode)]  # All regions at current node or older - total regions in cell type of interest
+    denominator <- totalOlderNodeRegions - nTrials # All regions at current node or older - total regions in cell type of interest
     nullPr <- numerator/denominator # successes over trials with current cell type held out
     nSuccesses = subtypeDF$successSum[which(subtypeDF$Node == currNode)]
     test <- binom.test(nSuccesses, nTrials, nullPr, alternative = "two.sided")

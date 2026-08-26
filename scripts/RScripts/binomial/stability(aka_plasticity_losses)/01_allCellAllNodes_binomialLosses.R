@@ -103,7 +103,7 @@ for(currNode in nodes){
     filter(Node %in% olderNodes) %>%
     select(nRegions) %>%
     sum()
-  nTrials = totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)]
+  totalOlderNodeRegions = totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)]
   for(i in 1:nCellTypes){
     currCellType <- totalCellTypeRegions_losses$CellType[i]
     cellTypeDF <- nodeLosses %>%
