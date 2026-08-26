@@ -98,13 +98,22 @@ nodes <- nodeLosses$Node %>% unique
 for(currNode in nodes){
   currNodeName <- totalNodeRegions_losses$name[which(totalNodeRegions_losses$Node == currNode)]
   print(currNodeName)
+  olderNodes <- nodes[which(nodes >= currNode)]
+  totalOlderNodeRegions <- totalNodeRegions %>%
+    filter(Node %in% olderNodes) %>%
+    select(nRegions) %>%
+    sum()
   nTrials = totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)]
   for(i in 1:nCellTypes){
     currCellType <- totalCellTypeRegions_losses$CellType[i]
     cellTypeDF <- nodeLosses %>%
       filter(CellType == currCellType)
+    nTrials <- cellTypeDF %>%
+      filter(Node %in% olderNodes) %>%
+      select(nRegions) %>%
+      sum()
     numerator <- totalNodeLosses$nLosses[which(totalNodeLosses$Node == currNode)] - cellTypeDF$nSuccess[which(cellTypeDF$Node == currNode)] # All success regions for node of interest - success regions in current cell type
-    denominator <- totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)] - cellTypeDF$nRegions[which(cellTypeDF$Node == currNode)]  # All regions - total regions in node of interest
+    denominator <- totalOlderNodeRegions - cellTypeDF$nRegions[which(cellTypeDF$Node == currNode)]  # All regions - total regions in node of interest
     nSuccesses = cellTypeDF$nSuccess[which(cellTypeDF$Node == currNode)]
     nullPr <- numerator/denominator
     nullPrMat[currCellType,currNodeName] <- nullPr
@@ -152,15 +161,8 @@ colnames(nMat_loss) <- nodeNames_losses
 enrichMat_loss <- (lossMat/nMat_loss)/nullPrMat
 enrichMat_loss <- enrichMat_loss[, colOrder]
 
-## DEBUG ----
-nodeLosses %>%
-  filter(Node == 1) %>%
-  filter(str_detect(CellType, "excitatoryNeuron")) %>%
-  select(nSuccess) %>%
-  sum()
+# Save
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+saveRDS(enrichMat_loss, "enrichMat_loss.rds")
 
-nodeLosses %>%
-  filter(Node == 1) %>%
-  filter(str_detect(CellType, "excitatoryNeuron")) %>%
-  select(nRegions) %>%
-  sum()
+
