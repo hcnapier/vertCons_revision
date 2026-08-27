@@ -61,6 +61,10 @@ binomPvalMat_combNodes <- matrix(ncol = nNodes, nrow = nCellTypes)
 colnames(binomPvalMat_combNodes) <- c("NodesH_3", paste("Node", seq(4,17), sep = ""))
 rownames(binomPvalMat_combNodes) <- totalCellTypeRegions$CellType
 
+testOut <- matrix(ncol = nNodes, nrow = nCellTypes)
+colnames(testOut) <- c("NodesH_3", paste("Node", seq(4,17), sep = ""))
+rownames(testOut) <- totalCellTypeRegions$CellType
+
 ## 2.3 Compute binomial probabilities ----
 Nodes <- nMapLong_combNodes$Node %>% unique
 for(currNode in Nodes){
@@ -79,6 +83,7 @@ for(currNode in Nodes){
     test <- binom.test(nSuccesses[i], nTrials, nullPrs[i], alternative = "two.sided")
     binomPrMat_combNodes[currCellType, currNodeName] <- test$estimate
     binomPvalMat_combNodes[currCellType, currNodeName] <- test$p.value
+    testOut[currCellType, currNodeName] <- (nSuccesses[i]/nTrials)/nullPrs[i]
   }
 }
 binomSigMat_combNodes <- binomPvalMat_combNodes < 0.05
@@ -97,6 +102,5 @@ nMat_combNodes <- data.frame(nMat_combNodes)
 rownames(nMat_combNodes) <- nMat_combNodes$CellType
 nMat_combNodes$CellType <- NULL
 nMat_combNodes <- as.matrix(nMat_combNodes)
-colnames(nMat_combNodes) <- nodeNames
+colnames(nMat_combNodes) <- c("H_3", seq(4,17))
 enrichMat_combNodes <- (nMapMat_combNodes/nMat_combNodes)/nullPrMat_combNodes
-
