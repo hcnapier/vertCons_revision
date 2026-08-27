@@ -98,22 +98,14 @@ nodes <- nodeLosses$Node %>% unique
 for(currNode in nodes){
   currNodeName <- totalNodeRegions_losses$name[which(totalNodeRegions_losses$Node == currNode)]
   print(currNodeName)
-  olderNodes <- nodes[which(nodes >= currNode)]
-  totalOlderNodeRegions <- totalNodeRegions %>%
-    filter(Node %in% olderNodes) %>%
-    select(nRegions) %>%
-    sum()
-  totalOlderNodeRegions = totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)]
+  totalOlderNodeRegions <- totalNodeRegions_losses$nRegions[which(totalNodeRegions_losses$Node == currNode)]
   for(i in 1:nCellTypes){
     currCellType <- totalCellTypeRegions_losses$CellType[i]
     cellTypeDF <- nodeLosses %>%
       filter(CellType == currCellType)
-    nTrials <- cellTypeDF %>%
-      filter(Node %in% olderNodes) %>%
-      select(nRegions) %>%
-      sum()
+    nTrials <- cellTypeDF$nRegions[which(cellTypeDF$Node == currNode)]
     numerator <- totalNodeLosses$nLosses[which(totalNodeLosses$Node == currNode)] - cellTypeDF$nSuccess[which(cellTypeDF$Node == currNode)] # All success regions for node of interest - success regions in current cell type
-    denominator <- totalOlderNodeRegions - cellTypeDF$nRegions[which(cellTypeDF$Node == currNode)]  # All regions - total regions in node of interest
+    denominator <- totalOlderNodeRegions - nTrials  # All regions - total regions in node of interest
     nSuccesses = cellTypeDF$nSuccess[which(cellTypeDF$Node == currNode)]
     nullPr <- numerator/denominator
     nullPrMat[currCellType,currNodeName] <- nullPr
@@ -145,6 +137,8 @@ lossMat <- data.frame(lossMat)
 rownames(lossMat) <- lossMat$CellType
 lossMat$CellType <- NULL
 lossMat <- as.matrix(lossMat)
+colOrder <- c("X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "X9", "X10", "X11", "X12", "X13", "X14", "X15", "X16")
+lossMat <- lossMat[, colOrder]
 colnames(lossMat) <- nodeNames_losses
 
 nMat_loss <- nodeLosses %>%
@@ -157,9 +151,10 @@ nMat_loss <- data.frame(nMat_loss)
 rownames(nMat_loss) <- nMat_loss$CellType
 nMat_loss$CellType <- NULL
 nMat_loss <- as.matrix(nMat_loss)
+colOrder <- c("X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "X9", "X10", "X11", "X12", "X13", "X14", "X15", "X16")
+nMat_loss <- nMat_loss[, colOrder]
 colnames(nMat_loss) <- nodeNames_losses
 enrichMat_loss <- (lossMat/nMat_loss)/nullPrMat
-enrichMat_loss <- enrichMat_loss[, colOrder]
 
 # Save
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")

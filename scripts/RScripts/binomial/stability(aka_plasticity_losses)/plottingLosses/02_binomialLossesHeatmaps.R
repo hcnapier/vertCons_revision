@@ -32,16 +32,8 @@ pheatmap(binomSigMat_loss,
          fontsize_row = 3)
 
 ## 1.4 Binomial enrichments ----
-enrichMat_loss <- enrichMat_loss[, colOrder]
 pheatmap(enrichMat_loss, 
          cluster_rows = FALSE, 
          cluster_cols = FALSE,
          main = "Losses, Binomial Enrichments", 
          fontsize_row = 3)
-pheatmap(enrichMat_loss, 
-         cluster_rows = FALSE, 
-         cluster_cols = FALSE,
-         main = "Losses, Binomial Enrichments (Normalized by Node)", 
-         fontsize_row = 3, 
-         scale = "column")
-
