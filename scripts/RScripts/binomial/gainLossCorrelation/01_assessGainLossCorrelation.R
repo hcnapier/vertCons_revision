@@ -46,6 +46,7 @@ gainLoss <- inner_join(gain, loss)
 gainLoss_recent <- gainLoss %>%
   filter(MYA < 150)
 
+
 ## 1.4 Ancient node subset ----
 gainLoss_ancient <- gainLoss %>%
   filter(MYA > 150)
