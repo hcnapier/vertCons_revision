@@ -170,3 +170,41 @@ neuron_subtype_enrichPlot <- ggplot(neuron_binom_combNodes, aes(x = MYA, y = enr
              labeller = as_labeller(labels)) 
 neuron_subtype_enrichPlot
 ggsave("neuron_subtype_enrichPlot.png", plot = neuron_subtype_enrichPlot, bg = "transparent", width = 5, height = 4.75)
+
+## Make a straight line figure for fig 1
+fig1Line <- neuron_binom_combNodes %>% 
+  filter(cellType == "excitatoryneuron")
+fig1Line$enrich = 0
+fig1Line$sig <- TRUE
+fig1Line$nodeName
+loss$nodeName %>% unique()
+
+# Or use the 'turbo' scale (a rainbow-like, colorblind-friendly alternative)
+install.packages("viridis")
+require(viridis)
+my_rainbow <- turbo(15)
+# Plot a quick pie chart to visualize the 15-color figure
+pie(rep(1, 15), col = my_rainbow, main = "15-Color Rainbow Palette")
+my_rainbow
+
+install.packages("paletteer")
+library(paletteer)
+# Filter for palettes with a length of 15
+palettes_15 <- palettes_d_names[palettes_d_names$length == 15, ]
+# View the matching package and palette names
+print(palettes_15)
+
+
+# Install the package if you do not have it
+install.packages("wesanderson")
+
+library(wesanderson)
+
+# Generate a 15-color continuous Zissou1 palette
+zissou_15 <- wes_palette("Zissou1", 15, type = "continuous")
+
+# View the hex codes
+zissou_15 %>% as.character()
+
+# Plot a quick color swatch to see them
+image(1:15, 1, as.matrix(1:15), col = zissou_15, xlab = "Zissou 15-color", ylab = "", yaxt = "n")

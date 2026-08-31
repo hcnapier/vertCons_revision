@@ -1,0 +1,12 @@
+#run_id	species	reference_key	fastq_R1	fastq_R2
+# Fill in one row per BGIseq run from the BioProject SRA list:
+# https://www.ncbi.nlm.nih.gov/sra?LinkName=bioproject_sra_all&from_uid=1177647
+#
+# run_id        = SRR accession (e.g. SRR12345678)
+# species       = short label, must match a key in ref/species_refs.tsv
+# reference_key = same as species column (kept separate in case you rename refs)
+# fastq_R1/R2   = paths to the downloaded fastq.gz files for that run
+#
+# Example:
+# SRR00000001	cow	cow	/data/raw/SRR00000001_1.fastq.gz	/data/raw/SRR00000001_2.fastq.gz
+# SRR00000002	goat	goat	/data/raw/SRR00000002_1.fastq.gz	/data/raw/SRR00000002_2.fastq.gz

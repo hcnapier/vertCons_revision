@@ -1,0 +1,7 @@
+#species	assembly	fasta_source	gtf_source
+cow	ARS-UCD2.0	https://ftp.ensembl.org/pub/release-111/fasta/bos_taurus/dna/	https://ftp.ensembl.org/pub/release-111/gtf/bos_taurus/
+goat	ARS1.2	https://ftp.ensembl.org/pub/release-111/fasta/capra_hircus/dna/	https://ftp.ensembl.org/pub/release-111/gtf/capra_hircus/
+pig	Sscrofa11.1	https://ftp.ensembl.org/pub/release-111/fasta/sus_scrofa/dna/	https://ftp.ensembl.org/pub/release-111/gtf/sus_scrofa/
+dog	UU_Cfam_GSD_1.0	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/011/100/685/GCA_011100685.1_UU_Cfam_GSD_1.0/	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/011/100/685/GCA_011100685.1_UU_Cfam_GSD_1.0/
+rabbit	UM_NZW_1.0	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/009/806/435/GCA_009806435.1_UM_NZW_1.0/	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/009/806/435/GCA_009806435.1_UM_NZW_1.0/
+guinea_pig	mCavPor4.1	https://ftp.ensembl.org/pub/release-111/fasta/cavia_porcellus/dna/	https://ftp.ensembl.org/pub/release-111/gtf/cavia_porcellus/
