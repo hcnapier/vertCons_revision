@@ -30,7 +30,7 @@ neuronGroupBinom_loss <- subsetAndBinomCellTypeList(cellTypeList = neuronTypes,
 # Combine for plotting
 neuron_binom_loss <- do.call(rbind, neuronGroupBinom_loss)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
-saveRDS(neuron_binom, "neuron_bionm_loss.rds")
+saveRDS(neuron_binom_loss, "neuron_bionm_loss.rds")
 
 ## 1.4 All Muscle Subtypes ----
 stageList <- c("developing", "adult")
