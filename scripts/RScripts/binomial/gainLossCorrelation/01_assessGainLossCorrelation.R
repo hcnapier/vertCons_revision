@@ -115,3 +115,68 @@ ggplot(gainLoss_ancient, aes(x = gainEnrich, y = lossEnrich, color = MYA)) +
   scale_color_distiller(palette = "Spectral") +
   geom_smooth(method = "lm", color = "azure4", se = TRUE) +
   theme_minimal()
+
+## 3.4 Color placenta cell types ----
+placentaTypes <- c("placentalNeuron", 
+                   "fibroPlacental", 
+                   "macrophagePlacental", 
+                   "extravillousTrophoblast", 
+                   "syncitiotrophoblastCytotrophoblast", 
+                   "endothelialPlacental")
+placentaPattern <- paste(placentaTypes, collapse = "|")
+placentaTrophoblast <- c("extravillousTrophoblast", 
+                         "syncitiotrophoblastCytotrophoblast")
+placentaTrophoblastPattern <- paste(placentaTrophoblast, collapse = "|")
+gainLoss <- gainLoss %>% 
+  mutate(placenta = if_else(str_detect(CellType, placentaPattern), "TRUE", "FALSE"))
+gainLoss <- gainLoss %>% 
+  mutate(placentaTrophoblast = if_else(str_detect(CellType, placentaTrophoblastPattern), "TRUE", "FALSE"))
+
+
+ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = placenta, alpha = placenta)) + 
+  geom_point(stroke = 0, size = 3) +
+  #geom_smooth(method = "lm", color = "azure4", se = TRUE) + 
+  scale_alpha_manual(values = c("TRUE" = 0.9, "FALSE" = 0.1)) + 
+  scale_color_manual(values = c("TRUE" = "yellowgreen", "FALSE" = "azure4")) +
+  ylim(c(0.5, 1.75)) +
+  theme_minimal()
+
+placentaGainLoss <- gainLoss %>%
+  filter(placental == TRUE)
+
+placentaGainLoss$MYA <- as.factor(placentaGainLoss$MYA)
+ggplot(placentaGainLoss, aes(x = gainEnrich, y = lossEnrich, color = MYA)) + 
+  scale_color_manual(values = rev(zissou_15)) +
+  geom_point(alpha = 0.7, stroke = 0, size = 3) +
+  ylim(c(0.5, 1.75)) +
+  #geom_smooth(method = "lm", color = "azure4", se = TRUE) + 
+  theme_minimal() +
+  labs(title = "Placenta")
+
+ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = placentaTrophoblast, alpha = placentaTrophoblast)) + 
+  geom_point(stroke = 0, size = 3) +
+  #geom_smooth(method = "lm", color = "azure4", se = TRUE) + 
+  scale_alpha_manual(values = c("TRUE" = 0.9, "FALSE" = 0.15)) + 
+  scale_color_manual(values = c("TRUE" = "darkolivegreen", "FALSE" = "darkgray")) +
+  theme_minimal()
+
+placentaTrophoblastGainLoss <- gainLoss %>%
+  filter(placentaTrophoblast == TRUE)
+
+
+ggplot(placentaGainLoss, aes(x = gainEnrich, y = lossEnrich, color = placentaTrophoblast, alpha = placentaTrophoblast)) + 
+  geom_point(stroke = 0, size = 3) +
+  #geom_smooth(method = "lm", color = "azure4", se = TRUE) + 
+  scale_alpha_manual(values = c("TRUE" = 0.9, "FALSE" = 0.3)) + 
+  scale_color_manual(values = c("TRUE" = "darkolivegreen", "FALSE" = "yellowgreen")) +
+  ylim(c(0.5, 1.75)) +
+  theme_minimal()
+
+placentaTrophoblastGainLoss$MYA <- as.factor(placentaTrophoblastGainLoss$MYA)
+ggplot(placentaTrophoblastGainLoss, aes(x = gainEnrich, y = lossEnrich, color = MYA)) + 
+  scale_color_manual(values = rev(zissou_15)) +
+  geom_point(alpha = 0.7, stroke = 0, size = 3) +
+  ylim(c(0.5, 1.75)) +
+  #geom_smooth(method = "lm", color = "azure4", se = TRUE) + 
+  theme_minimal() +
+  labs(title = "Placenta Trophoblasts")
