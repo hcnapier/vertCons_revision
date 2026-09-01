@@ -41,7 +41,7 @@ gain <- inner_join(combNodeEnr_long, combNodePval_long)
 gain$nodeName <- str_remove_all(gain$nodeName, "Nodes")
 gain$nodeName <- str_remove_all(gain$nodeName, "Node")
 gainLoss <- inner_join(gain, loss)
-gainLoss$MYA <- as.numeric(gainLoss$MYA)
+gainLoss$MillionYearsAgo <- as.factor(gainLoss$MYA)
 
 ## 1.3 Recent node subset ----
 gainLoss_recent <- gainLoss %>%
@@ -72,15 +72,15 @@ ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich)) +
   geom_smooth(method = "lm", color = "azure4", se = TRUE) +
   theme_minimal() 
 
-ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = as.factor(MYA))) +
+ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
   geom_point(alpha = 0.7, stroke = 0, size = 3) + 
   scale_color_manual(values = rev(zissou_15)) +
   geom_smooth(method = "lm", color = "azure4", se = TRUE) +
   theme_minimal()
 
-ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = MYA)) +
+ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
   geom_point(alpha = 0.7, stroke = 0, size = 3) + 
-  scale_color_distiller(palette = "Spectral") +
+  scale_color_manual(values = rev(zissou_15)) +
   geom_smooth(method = "lm", color = "azure2", se = TRUE) +
   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
                parse = TRUE, label.x = "right", label.y = "top") +
@@ -104,16 +104,16 @@ ggplot(gainLoss, aes(x = log(gainEnrich), y = log(lossEnrich), color = nodeName)
   theme_minimal()
 
 ## 3.2 Recent nodes ----
-ggplot(gainLoss_recent, aes(x = gainEnrich, y = lossEnrich, color = MYA)) +
+ggplot(gainLoss_recent, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
   geom_point(alpha = 0.7, stroke = 0, size = 3) + 
-  scale_color_manual(values = zissou_15) +
+  scale_color_manual(values = rev(zissou_15)) +
   geom_smooth(method = "lm", color = "azure4", se = TRUE) +
   theme_minimal()
 
 ## 3.3 Ancient nodes ----
-ggplot(gainLoss_ancient, aes(x = gainEnrich, y = lossEnrich, color = MYA)) +
+ggplot(gainLoss_ancient, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
   geom_point(alpha = 0.7, stroke = 0, size = 3) + 
-  scale_color_distiller(palette = "Spectral") +
+  scale_color_manual(values = rev(zissou_15[3:8])) +
   geom_smooth(method = "lm", color = "azure4", se = TRUE) +
   theme_minimal()
 
