@@ -7,8 +7,8 @@
 cd /work/hcn4/260630_vertCons_wd/scTrx/rObjs
 
 # rabbit
-wget https://api.figshare.com/v2/file/download/64577397
-mv 64577397 rabbit.rds
+wget https://api.figshare.com/v2/file/download/64585266
+mv 64585266 rabbit.rds
 
 # mouse
 wget https://api.figshare.com/v2/file/download/65232021
