@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+data/*
+scripts/shellScripts/logs/*
+*.swp
+*slurm*

@@ -24,14 +24,24 @@ filename=${currInBed##*/}
 currName=${filename%.bed}
 
 #currName=$(basename $inDir .bed)
-outOverlap=$outDir/${currName}_geneOverlap.bed
+outOverlap=${outDir}/${currName}_geneOverlap.bed
 outIntergenic=${outDir}/${currName}_intergenic.bed
+outAnns=${outDir}/${currName}_genicAnns.bed
+outTable=${outDir}/${currName}_annTable.txt
+outTableTmp=${outDir}/${currName}_tmp.txt
 
 echo $currName
 
 echo "Processing: $currInBed"
 
-bedtools intersect -a ${currInBed} -b ${gencodeDir}/gencode_full.bed -wa -u > $outOverlap
-bedtools intersect -a ${currInBed} -b ${gencodeDir}/gencode_full.bed -v > $outIntergenic
+#bedtools intersect -a ${currInBed} -b ${gencodeDir}/gencode_full.bed -wa -u > $outOverlap
+#bedtools intersect -a ${currInBed} -b ${gencodeDir}/gencode_full.bed -v > $outIntergenic
+#bedtools intersect -a ${currInBed} -b ${gencodeDir}/gencode_full.bed -wa -wb > $outAnns
+
+awk '{count[$16]++} END {for (entry in count) print count[entry], entry}' $outAnns > $outTableTmp
+sed -i 's/||gene_id//g' $outTableTmp
+currNameString="${currName}"
+awk -v val="$SLURM_ARRAY_TASK_ID" 'BEGIN{FS=OFS=" "} {$(NF+1)=val} 1' $outTableTmp > $outTable
+rm $outTableTmp
 
 echo "done!"
