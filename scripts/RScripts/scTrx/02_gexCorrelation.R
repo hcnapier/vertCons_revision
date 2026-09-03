@@ -2,6 +2,8 @@
 ## 0.1 Load packages ----
 require(dplyr)
 require(Seurat)
+require(reshape2)
+require(ggplot2)
 
 ## 0.2 Load data ----
 ### Orthologs ----
@@ -78,5 +80,51 @@ sharedGenes <- Reduce(intersect, list(convertedToHuman[["cow"]]$gene_stable_id,
                                       convertedToHuman[["pig"]]$gene_stable_id, 
                                       convertedToHuman[["rabbit"]]$gene_stable_id, 
                                       convertedToHuman[["rat"]]$gene_stable_id))
+# Subset each pseudobulked matrix to only include shared genes
+pseudobulk_shared <- list()
+for(currSpecies in speciesnames){
+  pseudobulk_shared[[currSpecies]] <- pseudobulk[[currSpecies]][sharedGenes,]
+}
 
+# Format data ----
+pseudobulk_shared <- lapply(pseudobulk_shared, as.matrix)
+for(currSpecies in speciesnames){
+  colsOrdered <- sort(colnames(pseudobulk_shared[[currSpecies]]))
+  pseudobulk_shared[[currSpecies]] <- pseudobulk_shared[[currSpecies]][, colsOrdered]
+  colnames(pseudobulk_shared[[currSpecies]]) <- paste(colnames(pseudobulk_shared[[currSpecies]]), currSpecies, sep = "_")
+}
+
+## Merge all matrices 
+pseudobulkMerged <- pseudobulk_shared[["cow"]] %>% as.data.frame()
+pseudobulkMerged$RowNames <- pseudobulkMerged %>% row.names()
+
+for(currSpecies in speciesnames[2:9]){
+  temp <- pseudobulk_shared[[currSpecies]] %>% as.data.frame()
+  temp$RowNames <- temp %>% row.names()
+  pseudobulkMerged <- merge(pseudobulkMerged, temp)
+  # order columns by cell type
+  colsOrdered <- sort(colnames(pseudobulkMerged))
+  pseudobulkMerged <- pseudobulkMerged[,colsOrdered]
+}
+
+# Convert back into a matrix
+row.names(pseudobulkMerged) <- pseudobulkMerged$RowNames
+pseudobulkMerged$RowNames <- NULL
+pseudobulkMerged <- pseudobulkMerged %>% as.matrix()
+
+
+# 4.0 Pearson correlation ----
+## 4.1 All pairwise comparisons ----
+cormat_allPairwise <- cor(pseudobulkMerged)
+melted_cormat_allPairwise <- melt(cormat_allPairwise)
+allPairwise_corPlot <- ggplot(data = melted_cormat_allPairwise, aes(Var1, Var2, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 90, vjust = 1, 
+                                   size = 10, hjust = 1))+
+  coord_fixed()
+allPairwise_corPlot
 
