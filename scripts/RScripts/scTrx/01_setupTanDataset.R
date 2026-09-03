@@ -8,19 +8,30 @@ require(ggplot2)
 
 ## 0.2 Load data ----
 setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/")
-speciesnames <- c("mouse", "rat", "rabbit", "guineaPig", "cow", "dog", "macaque", "goat", "pig")
+speciesnames <- c("human", "mouse", "rat", "rabbit", "guineaPig", "cow", "dog", "macaque", "goat", "pig")
 speciesnames <- sort(speciesnames)
 speciesList <- list()
 for(currSpecies in speciesnames){
-  filename <- paste(currSpecies, "rds", sep = ".")
-  message(paste("reading", filename))
-  speciesList[[currSpecies]] <- readRDS(filename)
-  message("done")
+  if(currSpecies == "human"){
+    message("reading human_list.rds")
+    human_list <- readRDS("human_list.rds")
+    human <- CreateSeuratObject(counts = human_list$counts,
+                                meta.data = human_list$metadata)
+    human[["umap"]] <- CreateDimReducObject(embeddings = human_list$umap, key = "UMAP_", assay = "RNA")
+    speciesList[[currSpecies]] <- human
+    message("done")
+  }else{
+    filename <- paste(currSpecies, "rds", sep = ".")
+    message(paste("reading", filename))
+    speciesList[[currSpecies]] <- readRDS(filename)
+    message("done")
+  }
 }
 
 
 # 1.0 First pass ----
 ## 1.1 Clustering ----
+DimPlot(speciesList[["human"]])
 DimPlot(speciesList[["cow"]])
 DimPlot(speciesList[["dog"]])
 DimPlot(speciesList[["goat"]])
@@ -33,10 +44,10 @@ DimPlot(speciesList[["rat"]])
 
 ## 1.2 Set useful celltype ident ----
 # each species has a slightly different cell type name ident, so find the most useful one for each species
-celltype_merge <- c("dog", "goat", "cow", "guineaPig", "macaque", "pig", "rabbit")
+celltype_merge <- c("dog", "goat", "cow", "guineaPig", "macaque", "pig", "rabbit", "human")
 celltypes_merge <- c("mouse")
 celltype <- c("rat")
-cellNames <- c("CTB", "EVT", "STB", "UNC", "BNC", "Stro", "Endo", "Mac", "Epi", "DC", "Invasive tro", "Bcells", "Tcells", "NKcells", "Mono", "GC", "Mes", "Leu", "Neu")
+cellNames <- c("CTB", "EVT", "STB", "UNC", "BNC", "Stro", "Endo", "Mac", "Epi", "DC", "Invasive tro", "Bcell", "Tcell", "NKcell", "Mono", "GC", "Mes", "Leu", "Neu")
 for(currSpecies in speciesnames){
   DefaultAssay(speciesList[[currSpecies]]) <- "RNA"
   if(currSpecies %in% celltype_merge){
@@ -74,11 +85,13 @@ DimPlot(speciesList[["cow"]]) + ggtitle("Cow")
 DimPlot(speciesList[["dog"]]) + ggtitle("Dog")
 DimPlot(speciesList[["goat"]]) + ggtitle("Goat")
 DimPlot(speciesList[["guineaPig"]]) + ggtitle("Guinea Pig")
+DimPlot(speciesList[["human"]]) + ggtitle("Human")
 DimPlot(speciesList[["macaque"]]) + ggtitle("Macaque")
 DimPlot(speciesList[["mouse"]]) + ggtitle("Mouse")
 DimPlot(speciesList[["pig"]]) + ggtitle("Pig")
 DimPlot(speciesList[["rabbit"]]) + ggtitle("Rabbit")
 DimPlot(speciesList[["rat"]]) + ggtitle("Rat")
+
 
 # 2.0 Assess batch integration ----
 ## 2.1 Switch to integrated assay ----
