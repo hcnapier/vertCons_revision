@@ -4,6 +4,7 @@
 ## 0.1 Load packages ----
 require(Seurat)
 require(dplyr)
+require(ggplot2)
 
 ## 0.2 Load data ----
 setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/")
@@ -96,3 +97,10 @@ DimPlot(speciesList[["guineaPig"]], alpha = 0.25) + ggtitle("Guinea Pig")
 DimPlot(speciesList[["macaque"]], alpha = 0.25) + ggtitle("Macaque")
 DimPlot(speciesList[["mouse"]], alpha = 0.25) + ggtitle("Mouse")
 DimPlot(speciesList[["pig"]], alpha = 0.25) + ggtitle("Pig")
+
+
+# 3.0 Save processed object list ----
+## THIS TAKES A LONG TIME!!
+setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/processed")
+filePaths <- paste(speciesnames, ".rds", sep = "")
+Map(saveRDS, speciesList, filePaths)
