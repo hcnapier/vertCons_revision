@@ -4,6 +4,7 @@ require(dplyr)
 require(Seurat)
 require(reshape2)
 require(ggplot2)
+require(stringr)
 
 ## 0.2 Load data ----
 ### Orthologs ----
@@ -11,31 +12,33 @@ setwd("/hpc/group/vertgenlab/hailey/vertCons/code/vertCons_revision/data/ortholo
 ortho1 <- read.delim("human_mouseGuineaPigDogCowGoatMacaque.txt")
 ortho2 <- read.delim("human_ratRabbitPig.txt")
 # Filter by one-to-one orthologs
+colnames(ortho1) <- tolower(colnames(ortho1))
 ortho1 <- ortho1 %>%
-  filter(if_all(matches("homology_type"), ~ . == "ortholog_one2one")) %>%
-  filter(Gene_stable_ID != "") %>%
-  filter(if_all(matches("gene_name"), ~ . != "")) %>%
+  filter(if_all(matches("homology.type"), ~ . == "ortholog_one2one")) %>%
+  filter(if_all(matches("gene.name"), ~ . != "")) %>%
   distinct()
 
+colnames(ortho2) <- tolower(colnames(ortho2))
 ortho2 <- ortho2 %>%
-  filter(if_all(contains("homology_type"), ~ .x == "ortholog_one2one")) %>%
-  filter(Gene_stable_ID != "") %>%
-  filter(if_all(matches("gene_name"), ~ . != "")) %>%
+  filter(if_all(contains("homology.type"), ~ .x == "ortholog_one2one")) %>%
+  filter(if_all(matches("gene.name"), ~ . != "")) %>%
   distinct()
 
-orthoAll <- inner_join(ortho1, ortho2, by = "Gene_stable_ID") %>%
-  select(matches("gene_name|Gene_stable_ID|homology_type")) %>%
+orthoAll <- inner_join(ortho1, ortho2, by = "gene.name") %>%
+  select(matches("gene.name|homology.type")) %>%
   distinct()
 
-names(orthoAll) <- names(orthoAll) %>% tolower()
-speciesnames <- c("mouse", "rat", "rabbit", "guineaPig", "cow", "dog", "macaque", "goat", "pig") %>% sort()
-orthoNames <- data.frame(speciesName = speciesnames, orthoName = c("cattle", "dog", "goat", "guinea_pig", "crab.eating_macaque", "mouse", "pig", "rabbit", "norway_rat"))
+# Remove any duplicate genes
+speciesnames <- c("human", "mouse", "rat", "rabbit", "guineaPig", "cow", "dog", "macaque", "goat", "pig") %>% sort()
+orthoNames <- data.frame(speciesName = speciesnames, orthoName = c("cattle", "dog", "goat", "guinea.pig", "human", "crab.eating.macaque", "mouse", "pig", "rabbit", "norway_rat"))
 for(currSpecies in speciesnames){
   orthoName = orthoNames$orthoName[which(orthoNames$speciesName == currSpecies)]
-  if(currSpecies == "rat"){
-    geneListName <- tolower("Norway_rat_._BN.NHsdMcwi_gene_name")
+  if(currSpecies == "human"){
+    next
+  }else if(currSpecies == "rat"){
+    geneListName <- tolower("Norway.rat...BN.NHsdMcwi.gene.name")
   }else{
-    geneListName <- paste(orthoName, "gene_name", sep = "_")
+    geneListName <- paste(orthoName, "gene.name", sep = ".")
   }
   before <- nrow(orthoAll)
   orthoAll = orthoAll[!duplicated(orthoAll[[geneListName]]),]
@@ -43,60 +46,45 @@ for(currSpecies in speciesnames){
   message(currSpecies, " removed ", before-after, " duplicates")
 }
 
-### Seurat object list ----
-setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/processed")
-speciesnames <- c("mouse", "rat", "rabbit", "guineaPig", "cow", "dog", "macaque", "goat", "pig")
-speciesnames <- sort(speciesnames)
-speciesList <- list()
-for(currSpecies in speciesnames){
-  filename <- paste(currSpecies, "rds", sep = ".")
-  message(paste("reading", filename))
-  speciesList[[currSpecies]] <- readRDS(filename)
-  message("done")
-}
+orthoAll$guinea.pig.gene.name <- str_to_title(orthoAll$guinea.pig.gene.name)
 
 
 # 1.0 Pseudobulk ----
 names(orthoAll) <- names(orthoAll) %>% tolower()
-orthoNames <- data.frame(speciesName = speciesnames, orthoName = c("cattle", "dog", "goat", "guinea_pig", "crab.eating_macaque", "mouse", "pig", "rabbit", "norway_rat"))
+orthoNames <- data.frame(speciesName = speciesnames, orthoName = c("cattle", "dog", "goat", "guinea.pig", "human", "crab.eating.macaque", "mouse", "pig", "rabbit", "norway.rat"))
 pseudobulk <- list()
 convertedToHuman <- list()
 for(currSpecies in speciesnames){
   orthoName = orthoNames$orthoName[which(orthoNames$speciesName == currSpecies)]
-  if(currSpecies == "rat"){
-    geneListName <- tolower("Norway_rat_._BN.NHsdMcwi_gene_name")
+  if(currSpecies == "human"){
+    geneListName <- "gene.name"
+  }else if(currSpecies == "rat"){
+    geneListName <- tolower("Norway.rat...BN.NHsdMcwi.gene.name")
   }else{
-    geneListName <- paste(orthoName, "gene_name", sep = "_")
+    geneListName <- paste(orthoName, "gene.name", sep = ".")
   }
-  pseudobulk[currSpecies] <- AggregateExpression(speciesList[[currSpecies]], features = pull(orthoAll[geneListName]), return.seurat = F)
-  convert = data.frame(row.names(pseudobulk[[currSpecies]]))
+  pseudobulk[[currSpecies]] <- AggregateExpression(speciesList[[currSpecies]], features = pull(orthoAll[geneListName]), return.seurat = F)
+  convert = data.frame(row.names(pseudobulk[[currSpecies]]$RNA))
   names(convert) <- geneListName
   convertedToHuman[[currSpecies]] <- inner_join(convert, orthoAll) %>% distinct()
   row.names(pseudobulk[[currSpecies]]) <- convertedToHuman[[currSpecies]]$gene_stable_id
 }
 
-row.names(pseudobulk[["guineaPig"]]) %>% length()
-convertedToHuman[["guineaPig"]] %>% nrow()
-row.names(pseudobulk[["guineaPig"]]) %in% convertedToHuman[["guineaPig"]]$gene_stable_id %>% sum()
-head(row.names(pseudobulk[["guineaPig"]])) 
-orthoAll[["guinea_pig_gene_name"]]
-
-
 ## 1.1 Get shared genes ----
-sharedGenes <- Reduce(intersect, list(convertedToHuman[["cow"]]$gene_stable_id,
-                                      convertedToHuman[["dog"]]$gene_stable_id, 
-                                      convertedToHuman[["goat"]]$gene_stable_id, 
-                                      #convertedToHuman[["guineaPig"]]$gene_stable_id, 
-                                      convertedToHuman[["macaque"]]$gene_stable_id, 
-                                      convertedToHuman[["mouse"]]$gene_stable_id, 
-                                      convertedToHuman[["pig"]]$gene_stable_id, 
-                                      convertedToHuman[["rabbit"]]$gene_stable_id, 
-                                      convertedToHuman[["rat"]]$gene_stable_id))
+sharedGenes <- Reduce(intersect, list(convertedToHuman[["cow"]]$gene.name,
+                                      convertedToHuman[["dog"]]$gene.name, 
+                                      convertedToHuman[["goat"]]$gene.name, 
+                                      convertedToHuman[["guineaPig"]]$gene.name, 
+                                      convertedToHuman[["macaque"]]$gene.name, 
+                                      convertedToHuman[["mouse"]]$gene.name, 
+                                      convertedToHuman[["pig"]]$gene.name, 
+                                      convertedToHuman[["rabbit"]]$gene.name, 
+                                      convertedToHuman[["rat"]]$gene.name, 
+                                      row.names(pseudobulk[["human"]]$RNA)))
 # Subset each pseudobulked matrix to only include shared genes
-speciesnames <- speciesnames[speciesnames != "guineaPig"]
 pseudobulk_shared <- list()
 for(currSpecies in speciesnames){
-  pseudobulk_shared[[currSpecies]] <- pseudobulk[[currSpecies]][sharedGenes,]
+  pseudobulk_shared[[currSpecies]] <- pseudobulk[[currSpecies]]$RNA[row.names(pseudobulk[[currSpecies]]$RNA) %in% sharedGenes,]
 }
 
 # Format data ----
@@ -113,7 +101,7 @@ pseudobulkMerged <- pseudobulk_shared[["cow"]] %>% as.data.frame()
 pseudobulkMerged$RowNames <- pseudobulkMerged %>% row.names()
 
 colNames <- colnames(pseudobulkMerged)
-species_ordered <- c("macaque", "rat", "mouse", "rabbit", "pig", "cow", "goat", "dog")
+species_ordered <- c("human", "macaque", "guineaPig", "rat", "mouse", "rabbit", "pig", "cow", "goat", "dog")
 parts <- strsplit(colNames, "\\_")
 species  <- sapply(parts, `[`, 1)
 celltype <- sapply(parts, `[`, 2)
