@@ -154,7 +154,7 @@ speciesObj <- merge(speciesList[["human"]], y = c(orthoList[[1]],
                                           orthoList[[9]]), add.cell.ids = mergeNames)
 speciesObj <- normAndCluster(speciesObj)
 message("----- SEURAT OBJECTS MERGED -----")
-
+Idents(speciesObj) <- "napierCellTypes"
 
 # 3.0 Integrate objects ----
 message("Running Harmony integration...")
