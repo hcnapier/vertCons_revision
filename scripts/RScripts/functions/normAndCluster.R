@@ -12,7 +12,7 @@ normAndCluster <- function(obj, bugFix = F, resolution = 0.8){
   obj$seurat_clusters <- NULL
   #obj[["RNA"]] <- CreateAssayObject(counts = obj[["RNA"]]$counts) # reset assay dimensions
   obj <- PercentageFeatureSet(obj, pattern = "^MT-", col.name = "percent.mt")
-  options(future.globals.maxSize = 5000 * 1024^2) 
+  options(future.globals.maxSize = 10000 * 1024^2) 
   obj <- SCTransform(obj, vars.to.regress = "percent.mt", verbose = T, conserve.memory = T, vst.flavor = "v2")
   obj <- FindVariableFeatures(obj)
   if(bugFix){

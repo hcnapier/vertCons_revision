@@ -152,9 +152,19 @@ speciesObj <- merge(speciesList[["human"]], y = c(orthoList[[1]],
                                           orthoList[[7]],
                                           orthoList[[8]],
                                           orthoList[[9]]), add.cell.ids = mergeNames)
+speciesObj <- JoinLayers(speciesObj)
+counts <- GetAssayData(speciesObj, assay = "RNA", layer = "counts")
+totals <- Matrix::colSums(counts)
+speciesObj <- subset(speciesObj, cells = colnames(counts)[totals > 0])
+# Refresh metadata
+speciesObj$nCount_RNA   <- Matrix::colSums(GetAssayData(speciesObj, assay = "RNA", layer = "counts"))
+speciesObj$nFeature_RNA <- Matrix::colSums(GetAssayData(speciesObj, assay = "RNA", layer = "counts") > 0)
+speciesObj
 speciesObj <- normAndCluster(speciesObj)
+setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/processed")
+saveRDS(speciesObj,"mergedSpecies.rds")
 message("----- SEURAT OBJECTS MERGED -----")
-Idents(speciesObj) <- "napierCellTypes"
+
 
 # 3.0 Integrate objects ----
 message("Running Harmony integration...")
