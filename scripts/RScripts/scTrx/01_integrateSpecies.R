@@ -107,7 +107,7 @@ for(currSpecies in speciesnames){
   newnames[matchedIdx] <- "STB"
   matchedIdx <- grepl(tolower("giantCell"), tolower(newnames))
   newnames[matchedIdx] <- "s-TGC"
-  
+
   speciesList[[currSpecies]]$napierCellTypes <- newnames
   Idents(speciesList[[currSpecies]]) <- "napierCellTypes"
 }
@@ -144,15 +144,16 @@ message("----- SEURAT OBJECTS FILTERED BY ONE-TO-ONE ORTHOLOGS -----")
 # 2.0 Merge Seurat objects ----
 mergeNames <- speciesnames[speciesnames != "human"]
 mergeNames <- c("human", mergeNames)
-speciesObj <- merge(speciesList[["human"]], y = c(orthoList[[1]], 
-                                          orthoList[[2]], 
-                                          orthoList[[3]], 
-                                          orthoList[[4]], 
-                                          orthoList[[5]], 
-                                          orthoList[[6]], 
+speciesObj <- merge(speciesList[["human"]], y = c(orthoList[[1]],
+                                          orthoList[[2]],
+                                          orthoList[[3]],
+                                          orthoList[[4]],
+                                          orthoList[[5]],
+                                          orthoList[[6]],
                                           orthoList[[7]],
                                           orthoList[[8]],
                                           orthoList[[9]]), add.cell.ids = mergeNames)
+speciesObj <- JoinLayers(speciesObj)
 counts <- GetAssayData(speciesObj, assay = "RNA", layer = "counts")
 totals <- Matrix::colSums(counts)
 speciesObj <- subset(speciesObj, cells = colnames(counts)[totals > 0])
@@ -160,11 +161,19 @@ speciesObj <- subset(speciesObj, cells = colnames(counts)[totals > 0])
 speciesObj$nCount_RNA   <- Matrix::colSums(GetAssayData(speciesObj, assay = "RNA", layer = "counts"))
 speciesObj$nFeature_RNA <- Matrix::colSums(GetAssayData(speciesObj, assay = "RNA", layer = "counts") > 0)
 speciesObj
+speciesObj[["RNA"]] <- split(speciesObj[["RNA"]], f = speciesObj$species)
+speciesObj
 speciesObj <- normAndCluster(speciesObj)
 setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/processed")
 saveRDS(speciesObj,"mergedSpecies.rds")
 message("----- SEURAT OBJECTS MERGED -----")
 
+
+# # Load saved data ----
+# setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/processed")
+# speciesObj <- readRDS("mergedSpecies.rds")
+# intSpeciesObj <- readRDS("integratedSpecies.rds")
+# message("----- SEURAT OBJECT LOADED -----")
 
 # 3.0 Integrate objects ----
 message("Running Harmony integration...")
@@ -173,25 +182,11 @@ speciesObj <- IntegrateLayers(
   method       = HarmonyIntegration,
   orig.reduction = "pca",
   new.reduction  = "integrated_harmony",
-  verbose      = T, 
-  group
-)
-setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/processed")
-saveRDS(speciesObj,"integratedSpecies.rds")
-message("----- HARMONY INTEGRATION DONE -----")
-
-# RPCA Integration
-message("Running RPCA integration...")
-speciesObj <- IntegrateLayers(
-  object       = speciesObj,
-  method       = RPCAIntegration,
-  orig.reduction = "pca",
-  new.reduction  = "integrated.rpca",
   verbose      = T
 )
 setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/processed")
 saveRDS(speciesObj,"integratedSpecies.rds")
-message("----- RPCA INTEGRATION DONE -----")
+message("----- HARMONY INTEGRATION DONE -----")
 
 # CCA Integration
 message("  Running CCA integration...")
@@ -200,11 +195,26 @@ speciesObj <- IntegrateLayers(
   method       = CCAIntegration,
   orig.reduction = "pca",
   new.reduction  = "integrated.cca",
-  verbose      = T
+  verbose      = T, 
+  normalization.method = "SCT"
 )
 setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/processed")
 saveRDS(speciesObj,"integratedSpecies.rds")
 message("----- CCA INTEGRATION DONE -----")
+
+# RPCA Integration
+message("Running RPCA integration...")
+speciesObj <- IntegrateLayers(
+  object       = speciesObj,
+  method       = RPCAIntegration,
+  orig.reduction = "pca",
+  new.reduction  = "integrated.rpca",
+  verbose      = T, 
+  normalization.method = "SCT"
+)
+setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/processed")
+saveRDS(speciesObj,"integratedSpecies.rds")
+message("----- RPCA INTEGRATION DONE -----")
 
 # scVI Integration
 message("  Running scVI integration...")
