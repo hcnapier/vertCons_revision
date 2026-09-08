@@ -137,6 +137,7 @@ for(currSpecies in speciesnames){
   keep_idx <- !is.na(rownames(orthoCountMat))
   orthoCountMat <- orthoCountMat[keep_idx, ]
   orthoList[[currSpecies]] <- CreateSeuratObject(counts = orthoCountMat, meta.data = metadata)
+  orthoList[[currSpecies]]$species <- currSpecies
 }
 message("----- SEURAT OBJECTS FILTERED BY ONE-TO-ONE ORTHOLOGS -----")
 
@@ -152,7 +153,6 @@ speciesObj <- merge(speciesList[["human"]], y = c(orthoList[[1]],
                                           orthoList[[7]],
                                           orthoList[[8]],
                                           orthoList[[9]]), add.cell.ids = mergeNames)
-speciesObj <- JoinLayers(speciesObj)
 counts <- GetAssayData(speciesObj, assay = "RNA", layer = "counts")
 totals <- Matrix::colSums(counts)
 speciesObj <- subset(speciesObj, cells = colnames(counts)[totals > 0])
@@ -173,7 +173,8 @@ speciesObj <- IntegrateLayers(
   method       = HarmonyIntegration,
   orig.reduction = "pca",
   new.reduction  = "integrated_harmony",
-  verbose      = T
+  verbose      = T, 
+  group
 )
 setwd("/work/hcn4/260630_vertCons_wd/scTrx/rObjs/processed")
 saveRDS(speciesObj,"integratedSpecies.rds")
