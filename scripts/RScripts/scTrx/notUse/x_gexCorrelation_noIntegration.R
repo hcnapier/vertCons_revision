@@ -104,18 +104,19 @@ for(currSpecies in speciesnames[2:10]){
   pseudobulkMerged <- merge(pseudobulkMerged, temp)
 }
 
-# order columns by cell type
-colsOrdered <- sort(colnames(pseudobulkMerged))
-pseudobulkMerged <- pseudobulkMerged[,colsOrdered]
+## order columns by cell type ##
+#colsOrdered <- sort(colnames(pseudobulkMerged))
+#pseudobulkMerged <- pseudobulkMerged[,colsOrdered]
+####
 
 ## Order by evolutionary divergence ##
-# colNames <- colnames(pseudobulkMerged)
-# species_ordered <- c("human", "macaque", "guineaPig", "rat", "mouse", "rabbit", "pig", "cow", "goat", "dog")
-# parts <- strsplit(colNames, "\\_")
-# species  <- sapply(parts, `[`, 1)
-# celltype <- sapply(parts, `[`, 2)
-# colsOrdered <- colNames[order(factor(species, levels = species_ordered), celltype)]
-# pseudobulkMerged <- pseudobulkMerged[,colsOrdered]
+colNames <- colnames(pseudobulkMerged)
+species_ordered <- c("human", "macaque", "guineaPig", "rat", "mouse", "rabbit", "pig", "cow", "goat", "dog")
+parts <- strsplit(colNames, "\\_")
+species  <- sapply(parts, `[`, 1)
+celltype <- sapply(parts, `[`, 2)
+colsOrdered <- colNames[order(factor(species, levels = species_ordered), celltype)]
+pseudobulkMerged <- pseudobulkMerged[,colsOrdered]
 ####
 
 # Convert back into a matrix
@@ -126,13 +127,13 @@ pseudobulkMerged <- pseudobulkMerged %>% as.matrix()
 
 # 4.0 Pearson correlation ----
 ## 4.1 All pairwise comparisons ----
-cormat_allPairwise <- cor(pseudobulkMerged)
+cormat_allPairwise <- cor(pseudobulkMerged, method = "spearman")
 melted_cormat_allPairwise <- melt(cormat_allPairwise)
 allPairwise_corPlot <- ggplot(data = melted_cormat_allPairwise, aes(Var1, Var2, fill = value))+
   geom_tile(color = "white")+
   scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
                        midpoint = 0, limit = c(-1,1), space = "Lab", 
-                       name="Pearson\nCorrelation") +
+                       name="Spearman\nCorrelation") +
   theme_minimal()+ 
   theme(axis.text.x = element_text(angle = 90, vjust = 1, 
                                    size = 5, hjust = 1)) +
