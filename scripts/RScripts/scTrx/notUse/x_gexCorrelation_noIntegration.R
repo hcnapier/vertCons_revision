@@ -5,6 +5,8 @@ require(Seurat)
 require(reshape2)
 require(ggplot2)
 require(stringr)
+require(tidyverse)
+
 
 ## 0.2 Load data ----
 ### Orthologs ----
@@ -132,7 +134,7 @@ melted_cormat_allPairwise <- melt(cormat_allPairwise)
 allPairwise_corPlot <- ggplot(data = melted_cormat_allPairwise, aes(Var1, Var2, fill = value))+
   geom_tile(color = "white")+
   scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
-                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       midpoint = 0.5, limit = c(0,1), space = "Lab", 
                        name="Spearman\nCorrelation") +
   theme_minimal()+ 
   theme(axis.text.x = element_text(angle = 90, vjust = 1, 
@@ -141,3 +143,42 @@ allPairwise_corPlot <- ggplot(data = melted_cormat_allPairwise, aes(Var1, Var2, 
   coord_fixed()
 allPairwise_corPlot
 
+# Dotplot ----
+humanCompDF <- as.data.frame(cormat_allPairwise) %>%
+  rownames_to_column("row_id") %>%
+  pivot_longer(-row_id, names_to = "col_id", values_to = "correlation")
+
+# --- 3. Parse species and cell type from labels ---
+# Adjust the split pattern if your naming convention differs (e.g., more than one underscore)
+humanCompDF <- humanCompDF %>%
+  separate(row_id, into = c("row_celltype", "row_species"), sep = "_", extra = "merge") %>%
+  separate(col_id, into = c("col_celltype", "col_species"), sep = "_", extra = "merge")
+
+# --- 4. Keep only comparisons: human rows vs non-human columns ---
+humanCompDF <- humanCompDF %>%
+  filter(row_species == "human", col_species != "human")
+
+species_ordered <- c("macaque", "guineaPig", "rat", "mouse", "rabbit", "pig", "cow", "goat", "dog")
+
+humanCompDF <- humanCompDF %>%
+  filter(col_species %in% species_ordered) %>%
+  mutate(col_species = factor(col_species, levels = species_ordered))
+
+celltypes_per_species <- humanCompDF %>%
+  group_by(col_species) %>%
+  summarise(celltypes = list(unique(col_celltype)))
+
+shared_celltypes <- Reduce(intersect, celltypes_per_species$celltypes)
+
+humanCompDF <- humanCompDF %>%
+  filter(col_celltype %in% shared_celltypes)
+
+# --- 5. Plot: human cell type vs other species' cell type, faceted by species ---
+ggplot(humanCompDF, aes(x = col_species, y = correlation, color = row_celltype)) +
+  geom_point(position = position_jitter(width = 0.15, height = 0), size = 2, alpha = 0.8) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.grid.major.x = element_blank()) +
+  labs(x = "Species", y = "Correlation",
+       color = "Human cell type",
+       title = "Human Cell Type Correlations Across Species (Shared Cell Types Only)")
