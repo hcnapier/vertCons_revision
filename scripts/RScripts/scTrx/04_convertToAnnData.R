@@ -5,12 +5,13 @@
 
 # 0.0 Setup ----
 ## 0.1 Load packages ----
-Sys.setenv(LD_LIBRARY_PATH = paste0(
-  "/hpc/group/vertgenlab/hailey/software/miniconda3/envs/rEnv/lib:",
-  Sys.getenv("LD_LIBRARY_PATH")
-))
-Sys.setenv(RETICULATE_CONDA = "/hpc/group/vertgenlab/hailey/software/miniconda3/bin/conda")
-require(Seurat)
+.libPaths(c("~/R/R4.6.0_packages"))
+options(repos = c(CRAN = "https://cloud.r-project.org")) 
+library(SeuratObject)
+library(Seurat)
+library(dplyr)
+library(scCustomize)
+message("----- PACKAGES LOADED -----")
 
 ## 0.2 Load data ----
 ### Set up species Seurat objects ----
@@ -77,10 +78,10 @@ message("----- TAN DATASETS LOADED -----")
 require(reticulate)
 #Sys.setenv(RETICULATE_CONDA = "/hpc/group/vertgenlab/hailey/software/miniconda3/bin/conda")
 use_condaenv("/hpc/group/vertgenlab/hailey/software/miniconda3/envs/rEnv", conda = "/hpc/group/vertgenlab/hailey/software/miniconda3/bin/conda", required = TRUE)
-require(scCustomize)
 # note that this requires python 3.10, the newer anndata api isn't compatible with reticulate
 
-for(currSpecies in speciesnames){
+for(currSpecies in speciesnamess){
+  message("Converting ", currSpecies, "...", sep = "")
   filename <- paste(currSpecies, ".h5ad", sep = "")
-  as.anndata(x = speciesList[[currSpecies]], file_path = "/work/hcn4/260630_vertCons_wd/scTrx/annDataObjs", file_name = filename)
+  as.anndata(x = speciesList[[currSpecies]], file_path = "/work/hcn4/260630_vertCons_wd/scTrx/annDataObjs", file_name = filename, main_layer = "counts", other_layers = NULL)
 }
