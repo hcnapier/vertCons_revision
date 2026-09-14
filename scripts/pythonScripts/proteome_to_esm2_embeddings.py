@@ -61,7 +61,8 @@ ESM2_MODEL_NAME = "facebook/esm2_t48_15B_UR50D"  # dim 5120, matches UCE tokens
 MAX_SEQ_LEN = 1022  # ESM2 positional limit is 1024, minus BOS/EOS tokens
 
 
-def parse_fasta_longest_isoform(fasta_path: str, gene_id_regex: str) -> dict:
+def parse_fasta_longest_isoform(fasta_path: str, gene_id_regex: str,
+                                 collision_check_regex: str = None) -> dict:
     """
     Parse a FASTA file and keep only the longest protein sequence per gene.
 
@@ -71,9 +72,21 @@ def parse_fasta_longest_isoform(fasta_path: str, gene_id_regex: str) -> dict:
         >ENSP00000493376.2 pep primary_assembly:GRCh38:... gene:ENSG00000198888.2 ...
     so a regex like r"gene:(\\S+)" pulls out "ENSG00000198888.2".
     Adjust this for your proteome source (Ensembl, RefSeq, UniProt, etc.).
+
+    collision_check_regex is optional. If provided, it should extract a
+    second, more stable identifier from the same header (typically the
+    Ensembl gene ID, e.g. r"gene:(\\S+)") so we can detect when multiple
+    DISTINCT genes have been grouped under the same gene_id_regex key — most
+    relevant when gene_id_regex extracts gene SYMBOLS, since symbols aren't
+    guaranteed unique the way Ensembl gene IDs are (shared/informal symbols,
+    paralogs, imperfect annotation, etc). Without this check, such
+    collisions get silently collapsed to whichever isoform is longest.
     """
     gene_re = re.compile(gene_id_regex)
-    sequences = {}  # header -> (gene_id, seq)
+    collision_re = re.compile(collision_check_regex) if collision_check_regex else None
+
+    sequences = {}          # grouping_key -> longest seq
+    collision_ids = {}      # grouping_key -> set of distinct collision-check IDs seen
     gene_id, seq_lines, header = None, [], None
 
     def flush():
@@ -86,6 +99,11 @@ def parse_fasta_longest_isoform(fasta_path: str, gene_id_regex: str) -> dict:
         gid = m.group(1)
         if gid not in sequences or len(seq) > len(sequences[gid]):
             sequences[gid] = seq
+
+        if collision_re is not None:
+            cm = collision_re.search(header)
+            if cm:
+                collision_ids.setdefault(gid, set()).add(cm.group(1))
 
     with open(fasta_path) as f:
         for line in f:
@@ -100,6 +118,29 @@ def parse_fasta_longest_isoform(fasta_path: str, gene_id_regex: str) -> dict:
 
     print(f"Parsed {fasta_path}: {len(sequences)} genes "
           f"(longest isoform kept per gene).")
+
+    if collision_re is not None:
+        colliding = {k: v for k, v in collision_ids.items() if len(v) > 1}
+        if colliding:
+            print(f"\nWARNING: {len(colliding)} grouping key(s) matched more than "
+                  f"one distinct ID under --collision_check_regex — likely a "
+                  f"shared/duplicate gene symbol across different genes. Only "
+                  f"the longest isoform overall was kept per key, silently "
+                  f"discarding the other gene(s). First 10 examples:")
+            for k in list(colliding)[:10]:
+                print(f"  '{k}'  <-  {sorted(colliding[k])}")
+            print(
+                "If this matters for your analysis (e.g. you need every "
+                "distinct gene represented, not just one per symbol), "
+                "resolve these manually — e.g. by disambiguating symbols "
+                "before running this script, or building the embeddings "
+                "dict from the collision ID and only relabeling to symbol "
+                "afterward.\n"
+            )
+        else:
+            print("No gene-symbol collisions detected against "
+                  "--collision_check_regex.")
+
     return sequences
 
 
@@ -170,6 +211,16 @@ def main():
                          help=r"Regex with one capture group to pull the gene "
                               r"ID out of each FASTA header. Default matches "
                               r"Ensembl peptide FASTA format: 'gene:(\S+)'.")
+    parser.add_argument("--collision_check_regex", default=None,
+                         help=r"Optional. A second regex (one capture group) "
+                              r"pulling a more stable ID from the same header "
+                              r"— typically the Ensembl gene ID, e.g. "
+                              r"'gene:(\S+)'. Use this whenever --gene_id_regex "
+                              r"groups by something less strict than a unique "
+                              r"gene ID, most commonly gene SYMBOL (e.g. "
+                              r"'gene_symbol:(\S+)'), to detect and warn about "
+                              r"cases where the same symbol is shared by more "
+                              r"than one distinct gene.")
     parser.add_argument("--model_name", default=ESM2_MODEL_NAME,
                          help="HuggingFace ESM2 model to use. Defaults to "
                               "the 15B model UCE's released checkpoints use.")
@@ -184,7 +235,8 @@ def main():
                               "for the 15B model unless you have a lot of GPU memory.")
     args = parser.parse_args()
 
-    gene_to_seq = parse_fasta_longest_isoform(args.fasta, args.gene_id_regex)
+    gene_to_seq = parse_fasta_longest_isoform(args.fasta, args.gene_id_regex,
+                                               args.collision_check_regex)
     if not gene_to_seq:
         raise ValueError("No sequences parsed — check --gene_id_regex against "
                           "your FASTA headers.")
