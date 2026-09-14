@@ -12,7 +12,6 @@ see the note on smaller models at the bottom of this file.
 Steps:
   1. Take a proteome FASTA (one sequence per protein, ideally the longest
      isoform per gene — this matches how UCE's own species were processed).
-     You can get proteome FASTAs from Ensembl.
   2. Reduce to one representative protein per gene.
   3. Run each protein through ESM2, mean-pool the per-residue embeddings.
   4. Save as a dict {gene_id: float16 tensor[5120]} — this is the exact
@@ -24,6 +23,23 @@ Usage:
         --species_name my_species \
         --out_dir ./protein_embeddings \
         --gene_id_regex "gene:(\\S+)"
+
+IMPORTANT — model loading is local-only, by design:
+This script loads the model with local_files_only=True, so it will NEVER
+attempt a network download. Each array task therefore requires the model to
+already be present in the HF cache it points to. Before submitting your
+Slurm array job:
+
+  1. Make sure $HF_HOME (or the default ~/.cache/huggingface) points to a
+     path that is shared/visible from every compute node — e.g. a group
+     project directory, not a node-local scratch disk.
+  2. Set that same HF_HOME in your Slurm submission script, so every array
+     task reads from the same cache:
+         export HF_HOME=/hpc/group/vertgenlab/hailey/software/hf_cache
+  3. Confirm the model is already downloaded there (see the earlier
+     scan-cache / local_files_only verification steps) BEFORE launching
+     the array job — if the cache is missing or incomplete, this script
+     will now fail immediately and clearly instead of trying to download.
 """
 
 import argparse
@@ -90,12 +106,22 @@ def parse_fasta_longest_isoform(fasta_path: str, gene_id_regex: str) -> dict:
 def embed_proteome(gene_to_seq: dict, model_name: str, device: str,
                     batch_size: int = 1) -> dict:
     """Run each protein through ESM2 and mean-pool per-residue embeddings."""
-    print(f"Loading {model_name} (this can take a while / a lot of memory "
-          f"for the 15B model)...")
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_name, torch_dtype=torch.float16)
-    model.to(device)
+    print(f"Loading {model_name} from local cache (no download attempted)...")
+    tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
+    model = AutoModel.from_pretrained(
+        model_name,
+        dtype=torch.float16,
+        local_files_only=True,
+        low_cpu_mem_usage=True,
+        device_map="auto",  # places weights on GPU as loaded; offloads to
+                             # CPU RAM automatically if GPU memory is tight,
+                             # instead of crashing outright like model.to() does
+    )
     model.eval()
+    # With device_map="auto" the model may be split across devices, so send
+    # inputs to wherever the first layer actually landed rather than
+    # assuming everything is on a single --device string.
+    input_device = next(model.parameters()).device
 
     gene_ids = list(gene_to_seq.keys())
     embeddings = {}
@@ -107,7 +133,7 @@ def embed_proteome(gene_to_seq: dict, model_name: str, device: str,
 
             tokens = tokenizer(batch_seqs, return_tensors="pt", padding=True,
                                 truncation=True, max_length=MAX_SEQ_LEN + 2)
-            tokens = {k: v.to(device) for k, v in tokens.items()}
+            tokens = {k: v.to(input_device) for k, v in tokens.items()}
 
             out = model(**tokens)
             hidden = out.last_hidden_state  # (batch, seq_len, embed_dim)
@@ -147,7 +173,12 @@ def main():
     parser.add_argument("--model_name", default=ESM2_MODEL_NAME,
                          help="HuggingFace ESM2 model to use. Defaults to "
                               "the 15B model UCE's released checkpoints use.")
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu",
+                         help="Kept for compatibility, but no longer controls "
+                              "model placement — device_map='auto' (via the "
+                              "'accelerate' package) now decides that "
+                              "automatically, including offloading to CPU "
+                              "if GPU memory is insufficient.")
     parser.add_argument("--batch_size", type=int, default=1,
                          help="Sequences per forward pass. Keep small (1-4) "
                               "for the 15B model unless you have a lot of GPU memory.")
