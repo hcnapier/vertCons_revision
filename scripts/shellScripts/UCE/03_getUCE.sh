@@ -29,3 +29,4 @@ for fname in ['species_chrom.csv', 'species_offsets.pkl']:
     path = hf_hub_download(repo_id='minwoosun/uce-misc', filename=fname)
     shutil.copy(path, f'/path/to/UCE/model_files/{fname}')
 "
+conda deactivate
