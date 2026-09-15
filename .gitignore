@@ -6,3 +6,6 @@ data/*
 scripts/shellScripts/logs/*
 *.swp
 *slurm*
+.ipynb_checkpoints/
+**/ .ipynb_checkpoints/
+
