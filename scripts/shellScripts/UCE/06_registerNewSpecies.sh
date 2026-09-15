@@ -38,6 +38,7 @@ echo Species: ${speciesName}
 python ${pythonDir}/register_uce_species.py \
         --species_name ${speciesName} \
         --protein_embeddings_path ${currInEmbed} \
-        --temp_dir /work/hcn4/260630_vertCons_wd/scTrx/uce_species_temp
+        --temp_dir /work/hcn4/260630_vertCons_wd/scTrx/uce_species_temp \
+        --force
 
 conda deactivate
