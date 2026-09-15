@@ -1,4 +1,3 @@
-```python
 """
 Register a new species with UCE by writing a one-line registration file
 to a temporary directory.
@@ -108,4 +107,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-```
