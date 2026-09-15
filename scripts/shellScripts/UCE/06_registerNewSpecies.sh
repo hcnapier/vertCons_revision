@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=registerNewSpecies
 #SBATCH --output=logs/registerNewSpecies_%A_%a.out
-#SBATCH --error=logs/resgisterNewSpecies_%A_%a.err
+#SBATCH --error=logs/registerNewSpecies_%A_%a.err
 #SBATCH --time=00:30:00
 #SBATCH --cpus-per-task=1
 #SBATCH --array=0-9
@@ -33,9 +33,11 @@ conda activate scrna
 export HF_HOME=/work/hcn4/260630_vertCons_wd/scTrx/esm2
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-python register_uce_species.py \
+echo Species: ${speciesName}
+
+python ${pythonDir}/register_uce_species.py \
         --species_name ${speciesName} \
-        --protein_embeddings_path ${esm2EmbeddingDir}/${currInEmbed} \
-        --csv_path ${uceDir}/model_files/new_species_protein_embeddings.csv
+        --protein_embeddings_path ${currInEmbed} \
+        --temp_dir /work/hcn4/260630_vertCons_wd/scTrx/uce_species_temp
 
 conda deactivate

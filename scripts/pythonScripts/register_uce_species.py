@@ -1,82 +1,111 @@
+```python
 """
-Register a new species with UCE by adding (or updating) a row in
-model_files/new_species_protein_embeddings.csv. This is the only manual
-registration step actually required — get_species_to_pe() in
-data_proc/data_utils.py already reads this CSV and merges it into its
-species dict automatically, so data_utils.py itself does not need editing.
+Register a new species with UCE by writing a one-line registration file
+to a temporary directory.
 
-Expected CSV columns (must match exactly, since data_utils.py does
-pd.read_csv(...).set_index("species").to_dict()["path"]):
+This script is designed to be safe to run concurrently as a batch array.
+Each array task writes its own file, so no shared CSV is modified.
+
+The temporary files can later be collapsed into the final CSV using
+collapse_uce_species.py.
+
+Expected final CSV columns:
+
     species,path
 
 Usage:
+
     python register_uce_species.py \
         --species_name bos_taurus \
         --protein_embeddings_path /path/to/bos_taurus_esm2_embeddings.pt \
-        --csv_path /path/to/UCE/model_files/new_species_protein_embeddings.csv
+        --temp_dir /path/to/uce_species_temp
 
-Safe to call repeatedly / from an array job: if the species is already
-registered, its path is updated in place rather than duplicated.
+This creates:
+
+    /path/to/uce_species_temp/bos_taurus.csv
+
+containing:
+
+    species,path
+    bos_taurus,/path/to/bos_taurus_esm2_embeddings.pt
 """
 
 import argparse
 from pathlib import Path
 
-import pandas as pd
 
-
-def register_species(csv_path: str, species_name: str, protein_embeddings_path: str):
-    csv_path = Path(csv_path)
+def register_species(
+    temp_dir: str,
+    species_name: str,
+    protein_embeddings_path: str,
+):
+    temp_dir = Path(temp_dir)
     protein_embeddings_path = str(Path(protein_embeddings_path).resolve())
 
     if not Path(protein_embeddings_path).exists():
         raise FileNotFoundError(
-            f"--protein_embeddings_path does not exist: {protein_embeddings_path}"
+            f"--protein_embeddings_path does not exist: "
+            f"{protein_embeddings_path}"
         )
 
-    if csv_path.exists():
-        df = pd.read_csv(csv_path)
-        if not {"species", "path"}.issubset(df.columns):
-            raise ValueError(
-                f"{csv_path} exists but doesn't have the expected 'species','path' "
-                f"columns (found: {list(df.columns)}). Refusing to modify it "
-                f"automatically — check the file by hand."
-            )
-    else:
-        df = pd.DataFrame(columns=["species", "path"])
-        csv_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_dir.mkdir(parents=True, exist_ok=True)
 
-    if species_name in df["species"].values:
-        old_path = df.loc[df["species"] == species_name, "path"].iloc[0]
-        if old_path == protein_embeddings_path:
-            print(f"'{species_name}' already registered with the same path — no change.")
-            return
-        df.loc[df["species"] == species_name, "path"] = protein_embeddings_path
-        print(f"Updated '{species_name}': {old_path} -> {protein_embeddings_path}")
-    else:
-        df = pd.concat(
-            [df, pd.DataFrame([{"species": species_name, "path": protein_embeddings_path}])],
-            ignore_index=True,
-        )
-        print(f"Added '{species_name}' -> {protein_embeddings_path}")
+    # Use the species name as the filename. Replace characters that could
+    # cause problems in filenames.
+    safe_species_name = (
+        species_name.replace("/", "_")
+        .replace("\\", "_")
+        .replace(" ", "_")
+    )
 
-    df.to_csv(csv_path, index=False)
-    print(f"Saved {csv_path} ({len(df)} total registered species)")
+    output_file = temp_dir / f"{safe_species_name}.csv"
+
+    # Each file contains exactly one registered species.
+    with open(output_file, "w") as f:
+        f.write("species,path\n")
+        f.write(f"{species_name},{protein_embeddings_path}\n")
+
+    print(f"Wrote '{species_name}' -> {output_file}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--species_name", required=True)
-    parser.add_argument("--protein_embeddings_path", required=True,
-                         help="Path to this species' ESM2 embeddings .pt file "
-                              "(the gene-symbol-keyed one).")
-    parser.add_argument("--csv_path", required=True,
-                         help="Path to UCE's model_files/new_species_protein_embeddings.csv")
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument(
+        "--species_name",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--protein_embeddings_path",
+        required=True,
+        help=(
+            "Path to this species' ESM2 embeddings .pt file "
+            "(the gene-symbol-keyed one)."
+        ),
+    )
+
+    parser.add_argument(
+        "--temp_dir",
+        required=True,
+        help=(
+            "Directory where the per-species registration files "
+            "will be written."
+        ),
+    )
+
     args = parser.parse_args()
 
-    register_species(args.csv_path, args.species_name, args.protein_embeddings_path)
+    register_species(
+        args.temp_dir,
+        args.species_name,
+        args.protein_embeddings_path,
+    )
 
 
 if __name__ == "__main__":
     main()
+```
