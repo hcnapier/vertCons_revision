@@ -80,7 +80,7 @@ require(reticulate)
 use_condaenv("/hpc/group/vertgenlab/hailey/software/miniconda3/envs/rEnv", conda = "/hpc/group/vertgenlab/hailey/software/miniconda3/bin/conda", required = TRUE)
 # note that this requires python 3.10, the newer anndata api isn't compatible with reticulate
 
-for(currSpecies in speciesnamess){
+for(currSpecies in speciesnames){
   message("Converting ", currSpecies, "...", sep = "")
   filename <- paste(currSpecies, ".h5ad", sep = "")
   as.anndata(x = speciesList[[currSpecies]], file_path = "/work/hcn4/260630_vertCons_wd/scTrx/annDataObjs", file_name = filename, main_layer = "counts", other_layers = NULL)

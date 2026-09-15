@@ -9,7 +9,7 @@ subtypeBinomTest <- function(subtypeDF, totalNodeRegions, totalCellTypeRegions, 
       filter(Node == currNode)
     numerator <- sum(subtypeDF$successSum) - subtypeDF$successSum[which(subtypeDF$Node == currNode)] # All success regions for cell type of interest - success regions in current node 
     denominator <- sum(totalCellTypeRegions$nRegions) - totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)]  # All regions - total regions in node of interest
-    nullPr <- numerator/denominator # successes over trials with current node held out
+    nullPr <- numerator/denominator # successes over trials for current cell type with current node held out
     nTrials = totalNodeRegions$nRegions[which(totalNodeRegions$Node == currNode)]
     nSuccesses = subtypeDF$successSum[which(subtypeDF$Node == currNode)]
     test <- binom.test(nSuccesses, nTrials, nullPr, alternative = "two.sided")

@@ -49,3 +49,5 @@ python ${pythonDir}/create_new_species_files.py \
     --taxonomy_id ${currTaxID} \
     --all_tokens_path /hpc/group/vertgenlab/hailey/software/UCE/model_files/all_tokens.torch \
     --out_dir ${outDir}
+
+conda deactivate
