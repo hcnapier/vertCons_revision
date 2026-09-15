@@ -1,3 +1,11 @@
+## 0.1 Load packages ----
+require(dplyr)
+require(tidyr)
+
+## 0.2 Load data ----
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+nodeLosses <- readRDS("nodeLosses.rds")
+
 # 1.0 Combine nodes -1-3 ----
 nLossMat <- nodeLosses %>%
   select(CellType, nSuccess, Node) %>%
