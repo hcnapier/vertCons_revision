@@ -8,4 +8,4 @@ scripts/shellScripts/logs/*
 *slurm*
 .ipynb_checkpoints/
 **/ .ipynb_checkpoints/
-
+**/logs/
