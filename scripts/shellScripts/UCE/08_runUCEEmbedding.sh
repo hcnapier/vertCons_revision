@@ -8,7 +8,7 @@
 #SBATCH --mem=128G
 #SBATCH --gres=gpu:5000_ada:2
 #SBATCH --partition=gpu-common
-#SBATCH --array=1-9
+#SBATCH --array=2
 
 # ============================== CONFIG ======================================
 
