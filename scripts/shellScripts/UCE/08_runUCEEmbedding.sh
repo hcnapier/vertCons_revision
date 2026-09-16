@@ -8,7 +8,7 @@
 #SBATCH --mem=128G
 #SBATCH --gres=gpu:5000_ada:2
 #SBATCH --partition=gpu-common
-#SBATCH --array=0-9
+#SBATCH --array=1-9
 
 # ============================== CONFIG ======================================
 
@@ -28,7 +28,7 @@ uceDir="/hpc/group/vertgenlab/hailey/software/UCE"
 speciesFilesDir="/work/hcn4/260630_vertCons_wd/scTrx/uceSpeciesFiles"
 
 # Path to the model weights .torch file
-modelLoc="/hpc/group/vertgenlab/hailey/software/UCE/model_files/4layer_model.torch"
+modelLoc="/hpc/group/vertgenlab/hailey/software/UCE/model_files/33l_8ep_1024t_1280.torch"
 
 # =============================================================================
 
@@ -90,11 +90,12 @@ accelerate launch eval_single_anndata.py \
     --dir "${outDir}/" \
     --species "${speciesName}" \
     --model_loc "${modelLoc}" \
-    --batch_size 25 \
+    --batch_size 8 \
     --CHROM_TOKEN_OFFSET "${chromTokenOffset}" \
     --spec_chrom_csv_path "${chromCsv}" \
     --token_file "${tokenFile}" \
     --offset_pkl_path "${offsetPkl}" \
-    --multi_gpu True
+    --multi_gpu True \
+    --nlayers 33
 
 conda deactivate
