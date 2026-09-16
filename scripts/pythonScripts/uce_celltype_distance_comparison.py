@@ -74,7 +74,7 @@ SPECIES = {
 METRIC = "cosine"
 
 # Where to save outputs
-OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances/uce_distances"
+OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances"
 
 # =============================================================================
 
@@ -196,12 +196,12 @@ def plot_heatmap(dist_df, out_path, title="UCE centroid distances: species | cel
     im = ax.imshow(dist_df.values, cmap="viridis")
     ax.set_xticks(range(len(dist_df)))
     ax.set_yticks(range(len(dist_df)))
-    ax.set_xticklabels(dist_df.columns, rotation=90, fontsize=12)
-    ax.set_yticklabels(dist_df.index, fontsize=12)
+    ax.set_xticklabels(dist_df.columns, rotation=90, fontsize=25)
+    ax.set_yticklabels(dist_df.index, fontsize=25)
     cbar = fig.colorbar(im, ax=ax, label="distance")
-    cbar.ax.tick_params(labelsize=11)
-    cbar.set_label("distance", fontsize=13)
-    ax.set_title(title, fontsize=15)
+    cbar.ax.tick_params(labelsize=20)
+    cbar.set_label("distance", fontsize=25)
+    ax.set_title(title, fontsize=30)
     fig.tight_layout()
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
