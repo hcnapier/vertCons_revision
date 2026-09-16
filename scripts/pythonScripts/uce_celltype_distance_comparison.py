@@ -74,11 +74,13 @@ SPECIES = {
 METRIC = "cosine"
 
 # Where to save outputs
-OUT_PREFIX = "uce_comparison"
+OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances/uce_distances"
 
 # =============================================================================
 
 
+
+ 
 def load_and_merge(dataset_paths, cell_type_cols, species_map):
     """Load each embedded dataset, standardize cell type column name, tag
     dataset origin and species, and concatenate into one AnnData."""
@@ -99,7 +101,7 @@ def load_and_merge(dataset_paths, cell_type_cols, species_map):
         a = ad.AnnData(X=a.X, obs=a.obs[["cell_type_std", "dataset", "species"]].copy(),
                         obsm={"X_uce": a.obsm["X_uce"]})
         adatas.append(a)
-
+ 
     combined = ad.concat(adatas, join="outer", label="batch", index_unique="-")
     combined.obs["group"] = (combined.obs["species"].astype(str) + " | " +
                               combined.obs["cell_type_std"].astype(str))
@@ -108,11 +110,11 @@ def load_and_merge(dataset_paths, cell_type_cols, species_map):
           f"({n_species} species), "
           f"{combined.obs['cell_type_std'].nunique()} unique cell type labels.")
     return combined
-
-
+ 
+ 
 def centroid_distance_matrix(combined, metric="cosine"):
     """Compute pairwise distances between (species, cell_type) centroids.
-
+ 
     Note: if a species has multiple datasets, all their cells are pooled
     together before averaging — i.e. this collapses dataset as a grouping
     dimension entirely. If you want per-dataset centroids too, use the
@@ -122,12 +124,12 @@ def centroid_distance_matrix(combined, metric="cosine"):
     X = combined.obsm["X_uce"]
     groups = combined.obs["group"].values
     centroids = pd.DataFrame(X, index=groups).groupby(level=0).mean()
-
+ 
     dist = squareform(pdist(centroids.values, metric=metric))
     dist_df = pd.DataFrame(dist, index=centroids.index, columns=centroids.index)
     return dist_df
-
-
+ 
+ 
 def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group=500):
     """
     For each cell type present in 2+ datasets, compare:
@@ -138,15 +140,15 @@ def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group
     """
     X = combined.obsm["X_uce"]
     obs = combined.obs.reset_index(drop=True)
-
+ 
     rng = np.random.default_rng(0)
-
+ 
     def subsample_idx(mask):
         idx = np.flatnonzero(mask.values)
         if len(idx) > max_cells_per_group:
             idx = rng.choice(idx, size=max_cells_per_group, replace=False)
         return idx
-
+ 
     same_type_dists = []
     for ct in obs["cell_type_std"].unique():
         ct_mask = obs["cell_type_std"] == ct
@@ -158,14 +160,14 @@ def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group
         d = pairwise_distances(X[idx], metric=metric)
         iu = np.triu_indices_from(d, k=1)
         same_type_dists.append(d[iu])
-
+ 
     if not same_type_dists:
         print("No cell type appears in 2+ datasets — can't compute "
               "same-type-cross-dataset scores. Check your label harmonization.")
         same_type_dists = np.array([])
     else:
         same_type_dists = np.concatenate(same_type_dists)
-
+ 
     # different-type pairs: sample broadly across all cells
     idx_all = subsample_idx(pd.Series(True, index=obs.index))
     d_all = pairwise_distances(X[idx_all], metric=metric)
@@ -173,7 +175,7 @@ def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group
     iu = np.triu_indices_from(d_all, k=1)
     diff_mask = types_all[iu[0]] != types_all[iu[1]]
     diff_type_dists = d_all[iu][diff_mask]
-
+ 
     print("\n--- Same-type-vs-different-type separation ---")
     if len(same_type_dists):
         print(f"Same cell type, different dataset: "
@@ -185,11 +187,11 @@ def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group
               f"{diff_type_dists.mean() / same_type_dists.mean():.2f}x "
               f"(>1 means the embedding separates cell types better than "
               f"it separates datasets)")
-
+ 
     return same_type_dists, diff_type_dists
-
-
-def plot_heatmap(dist_df, out_path):
+ 
+ 
+def plot_heatmap(dist_df, out_path, title="UCE centroid distances: species | cell type"):
     fig, ax = plt.subplots(figsize=(0.55 * len(dist_df) + 3, 0.55 * len(dist_df) + 3))
     im = ax.imshow(dist_df.values, cmap="viridis")
     ax.set_xticks(range(len(dist_df)))
@@ -199,48 +201,73 @@ def plot_heatmap(dist_df, out_path):
     cbar = fig.colorbar(im, ax=ax, label="distance")
     cbar.ax.tick_params(labelsize=11)
     cbar.set_label("distance", fontsize=13)
-    ax.set_title("UCE centroid distances: species | cell type", fontsize=15)
+    ax.set_title(title, fontsize=15)
     fig.tight_layout()
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
     print(f"Saved heatmap to {out_path}")
-
-
+ 
+ 
+def reorder_by_celltype(dist_df):
+    """
+    Reorder a (species | cell_type) distance matrix so cell types are
+    grouped together (with species nested within each cell type), instead
+    of the default species-first ordering. Groups' labels are expected in
+    the "species | cell_type" format produced by centroid_distance_matrix.
+    """
+    def sort_key(label):
+        species, cell_type = label.split(" | ", 1)
+        return (cell_type, species)
+ 
+    new_order = sorted(dist_df.index, key=sort_key)
+    # flip label order to "cell_type | species" for readability in this view
+    relabeled = {lbl: " | ".join(reversed(lbl.split(" | ", 1))) for lbl in new_order}
+    reordered = dist_df.loc[new_order, new_order].rename(index=relabeled, columns=relabeled)
+    return reordered
+ 
+ 
 def plot_umap(combined, out_path):
     sc.pp.neighbors(combined, use_rep="X_uce")
     sc.tl.umap(combined)
-
+ 
     multi_species = combined.obs["species"].nunique() > 1
     n_panels = 3 if multi_species else 2
     fig, axes = plt.subplots(1, n_panels, figsize=(7 * n_panels, 6))
-
+ 
     sc.pl.umap(combined, color="dataset", ax=axes[0], show=False, title="Dataset")
     sc.pl.umap(combined, color="cell_type_std", ax=axes[1], show=False,
                title="Cell type", legend_fontsize=6)
     if multi_species:
         sc.pl.umap(combined, color="species", ax=axes[2], show=False, title="Species")
-
+ 
     fig.tight_layout()
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
     print(f"Saved UMAP to {out_path}")
-
-
+ 
+ 
 def main():
     combined = load_and_merge(DATASET_PATHS, CELL_TYPE_COLS, SPECIES)
-
+ 
     dist_df = centroid_distance_matrix(combined, metric=METRIC)
     dist_df.to_csv(f"{OUT_PREFIX}_centroid_distances.csv")
     print(f"Saved centroid distance matrix to {OUT_PREFIX}_centroid_distances.csv")
-
+ 
     same_vs_different_type_scores(combined, metric=METRIC)
-
-    plot_heatmap(dist_df, f"{OUT_PREFIX}_heatmap.png")
+ 
+    plot_heatmap(dist_df, f"{OUT_PREFIX}_heatmap.png",
+                 title="UCE centroid distances: species | cell type")
+ 
+    dist_df_by_celltype = reorder_by_celltype(dist_df)
+    plot_heatmap(dist_df_by_celltype, f"{OUT_PREFIX}_heatmap_by_celltype.png",
+                 title="UCE centroid distances: cell type | species")
+ 
     plot_umap(combined, f"{OUT_PREFIX}_umap.png")
-
+ 
     combined.write_h5ad(f"{OUT_PREFIX}_combined.h5ad")
     print(f"Saved merged AnnData to {OUT_PREFIX}_combined.h5ad")
-
-
+ 
+ 
 if __name__ == "__main__":
     main()
+ 
