@@ -73,6 +73,13 @@ SPECIES = {
 # Distance metric for comparisons: "euclidean" or "cosine"
 METRIC = "cosine"
 
+# If True, mean-center each species' embeddings (subtract that species'
+# overall mean X_uce vector from every one of its cells) before computing
+# distances, UMAP, and the separation score. This removes a per-species
+# "offset" in embedding space — useful if species identity is dominating
+# over cell-type similarity in your comparisons. 
+CENTER_BY_SPECIES = True
+
 # Where to save outputs
 OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances"
 
@@ -112,7 +119,29 @@ def load_and_merge(dataset_paths, cell_type_cols, species_map):
     return combined
  
  
-def centroid_distance_matrix(combined, metric="cosine"):
+def center_by_species(combined):
+    """
+    Subtract each species' mean X_uce vector from every one of its cells.
+    Stores the result in .obsm["X_uce_centered"] and leaves the original
+    .obsm["X_uce"] untouched, so you can compare centered vs. uncentered
+    results without re-loading anything.
+    """
+    X = combined.obsm["X_uce"]
+    species = combined.obs["species"].values
+    X_centered = np.empty_like(X)
+ 
+    for sp in np.unique(species):
+        mask = species == sp
+        sp_mean = X[mask].mean(axis=0, keepdims=True)
+        X_centered[mask] = X[mask] - sp_mean
+ 
+    combined.obsm["X_uce_centered"] = X_centered
+    print("Per-species centering applied: subtracted each species' mean "
+          "embedding from its cells (stored in .obsm['X_uce_centered']).")
+    return combined
+ 
+ 
+def centroid_distance_matrix(combined, metric="cosine", use_rep="X_uce"):
     """Compute pairwise distances between (species, cell_type) centroids.
  
     Note: if a species has multiple datasets, all their cells are pooled
@@ -120,8 +149,11 @@ def centroid_distance_matrix(combined, metric="cosine"):
     dimension entirely. If you want per-dataset centroids too, use the
     "dataset" column instead of "species" when building combined.obs["group"]
     in load_and_merge().
+ 
+    use_rep: which .obsm key to compute distances from — "X_uce" (raw) or
+    "X_uce_centered" (after center_by_species()).
     """
-    X = combined.obsm["X_uce"]
+    X = combined.obsm[use_rep]
     groups = combined.obs["group"].values
     centroids = pd.DataFrame(X, index=groups).groupby(level=0).mean()
  
@@ -130,7 +162,8 @@ def centroid_distance_matrix(combined, metric="cosine"):
     return dist_df
  
  
-def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group=500):
+def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group=500,
+                                   use_rep="X_uce"):
     """
     For each cell type present in 2+ datasets, compare:
       - distances between cells of the SAME type across DIFFERENT datasets
@@ -138,7 +171,7 @@ def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group
     A well-aligned embedding should show same-type-cross-dataset distances
     noticeably smaller than different-type distances.
     """
-    X = combined.obsm["X_uce"]
+    X = combined.obsm[use_rep]
     obs = combined.obs.reset_index(drop=True)
  
     rng = np.random.default_rng(0)
@@ -226,8 +259,8 @@ def reorder_by_celltype(dist_df):
     return reordered
  
  
-def plot_umap(combined, out_path):
-    sc.pp.neighbors(combined, use_rep="X_uce")
+def plot_umap(combined, out_path, use_rep="X_uce"):
+    sc.pp.neighbors(combined, use_rep=use_rep)
     sc.tl.umap(combined)
  
     multi_species = combined.obs["species"].nunique() > 1
@@ -249,20 +282,26 @@ def plot_umap(combined, out_path):
 def main():
     combined = load_and_merge(DATASET_PATHS, CELL_TYPE_COLS, SPECIES)
  
-    dist_df = centroid_distance_matrix(combined, metric=METRIC)
+    use_rep = "X_uce"
+    if CENTER_BY_SPECIES:
+        combined = center_by_species(combined)
+        use_rep = "X_uce_centered"
+ 
+    dist_df = centroid_distance_matrix(combined, metric=METRIC, use_rep=use_rep)
     dist_df.to_csv(f"{OUT_PREFIX}_centroid_distances.csv")
     print(f"Saved centroid distance matrix to {OUT_PREFIX}_centroid_distances.csv")
  
-    same_vs_different_type_scores(combined, metric=METRIC)
+    same_vs_different_type_scores(combined, metric=METRIC, use_rep=use_rep)
  
+    title_suffix = " (species-centered)" if CENTER_BY_SPECIES else ""
     plot_heatmap(dist_df, f"{OUT_PREFIX}_heatmap.png",
-                 title="UCE centroid distances: species | cell type")
+                 title=f"UCE centroid distances: species | cell type{title_suffix}")
  
     dist_df_by_celltype = reorder_by_celltype(dist_df)
     plot_heatmap(dist_df_by_celltype, f"{OUT_PREFIX}_heatmap_by_celltype.png",
-                 title="UCE centroid distances: cell type | species")
+                 title=f"UCE centroid distances: cell type | species{title_suffix}")
  
-    plot_umap(combined, f"{OUT_PREFIX}_umap.png")
+    plot_umap(combined, f"{OUT_PREFIX}_umap.png", use_rep=use_rep)
  
     combined.write_h5ad(f"{OUT_PREFIX}_combined.h5ad")
     print(f"Saved merged AnnData to {OUT_PREFIX}_combined.h5ad")
@@ -270,4 +309,3 @@ def main():
  
 if __name__ == "__main__":
     main()
- 
