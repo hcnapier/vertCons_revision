@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=gethg38Cov
 #SBATCH --output=logs/hg38Cov_%A_%a.logs
-#SBATCH --time=5:00:00
+#SBATCH --time=00:10:00
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=1
 #SBATCH --array=1-59%2
