@@ -8,7 +8,7 @@
 allDists="/hpc/group/vertgenlab/cl454/src/phast/phast/bin/all_dists"
 tree="/hpc/group/vertgenlab/christi/vertCons/trees/hg38.60way.nhs"
 tmp="/work/hcn4/260630_vertCons_wd/60wayTree.dists.txt"
-out="/work/hcn4/60630_vertCons_wd/hg38_60wayTree.dists.txt"
+out="/work/hcn4/260630_vertCons_wd/hg38_60wayTree.dists.txt"
 #set species=/work/cf189/runPairwiseAlignments/species.list
 
 $allDists $tree > $tmp
