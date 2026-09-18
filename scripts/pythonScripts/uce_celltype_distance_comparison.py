@@ -11,8 +11,7 @@ Workflow:
   4. Compute a same-type-vs-different-type separation score.
   5. Save a distance heatmap and a UMAP colored by dataset / cell type.
 
-Fill in the CONFIG section below, then run:
-    python uce_celltype_distance_comparison.py
+python uce_celltype_distance_comparison.py
 """
 
 import numpy as np
@@ -25,11 +24,12 @@ import matplotlib.pyplot as plt
 
 # ============================== CONFIG ======================================
 
-# Paths to your UCE-embedded .h5ad files (output of eval_single_anndata / 
+# Paths to UCE-embedded .h5ad files (output of eval_single_anndata / 
 # uce-eval-single-anndata — each should already have .obsm["X_uce"]).
 DATASET_PATHS = {
     "dataset1": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Bos_taurus_uce_adata.h5ad",
     "dataset2": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Canis_lupus_familiaris_uce_adata.h5ad",
+    "dataset3": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Capra_hircus_uce_adata.h5ad"
     "dataset3": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Cavia_porcellus_uce_adata.h5ad",
     "dataset4": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Homo_sapiens_uce_adata.h5ad",
     "dataset5": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Macaca_fascicularis_uce_adata.h5ad",
@@ -40,7 +40,6 @@ DATASET_PATHS = {
 }
 
 # Name of the .obs column holding cell type labels in EACH dataset.
-# If it's the same column name everywhere, just repeat it.
 CELL_TYPE_COLS = {
     "dataset1": "napierCellTypes",
     "dataset2": "napierCellTypes",
@@ -61,13 +60,14 @@ CELL_TYPE_COLS = {
 SPECIES = {
     "dataset1": "cow",
     "dataset2": "dog",
-    "dataset3": "guineaPig",
-    "dataset4": "human",
-    "dataset5": "macaque",
-    "dataset6": "mouse",
-    "dataset7": "rabbit",
-    "dataset8": "rat",
-    "dataset9": "pig",
+    "dataset3": "goat",
+    "dataset4": "guineaPig",
+    "dataset5": "human",
+    "dataset6": "macaque",
+    "dataset7": "mouse",
+    "dataset8": "rabbit",
+    "dataset9": "rat",
+    "dataset10": "pig",
 }
 
 
@@ -80,12 +80,42 @@ SPECIES_PHYLO_ORDER = [
     "human",
     "macaque",
     "guineaPig",
+    "rat",
     "mouse",
     "rabbit",
     "pig", 
     "cow", 
+    "goat",
     "dog"
 ]
+
+# Study/publication each dataset came from
+STUDY = {
+    "dataset1": "Tan",
+    "dataset2": "Tan",
+    "dataset3": "Tan",
+    "dataset4": "Tan", 
+    "dataset5": "Tsang",
+    "dataset6": "Wang",
+    "dataset7": "Jiang",
+    "dataset8": "Tan",
+    "dataset9": "Iqbal",
+    "dataset10": "Tan"
+}
+ 
+# Sequencing/profiling technology used for each dataset
+TECHNOLOGY = {
+    "dataset1": "BGISEQ",
+    "dataset2": "BGISEQ",
+    "dataset3": "BGISEQ",
+    "dataset4": "BGISEQ",
+    "dataset5": "Illumina",
+    "dataset6": "Illumina",
+    "dataset7": "Illumina",
+    "dataset8": "BGISEQ",
+    "dataset9": "Illumina",
+    "dataset10": "BGISEQ"
+}
  
 # Order cell types should appear in the cell-type-organized heatmap — e.g.
 # by Cell Ontology (CL) hierarchy (broad lineage groupings together, related
@@ -119,12 +149,44 @@ CELL_TYPE_ONTOLOGY_ORDER = [
 # Distance metric for comparisons: "euclidean" or "cosine"
 METRIC = "cosine"
 
+# If True, run Harmony (via scanpy's harmony_integrate, falling back to
+# harmonypy directly if that's unavailable) on the UCE embeddings, using
+# HARMONY_BATCH_KEY as the batch variable to integrate over. This is a
+# heavier, more standard batch-correction approach than CENTER_BY_SPECIES —
+# it can capture non-linear/per-cell-type-specific batch effects, not just
+# a global per-species shift. If both this and CENTER_BY_SPECIES are True,
+# Harmony takes priority and centering is skipped (a warning is printed),
+# since running both is usually redundant.
+USE_HARMONY = True
+ 
+# .obs column(s) Harmony integrates over. Can be a single string ("species")
+# or a list to correct for multiple batch effects at once, e.g.
+# ["species", "study", "technology"] — Harmony supports multiple batch
+# variables simultaneously. Available columns after load_and_merge are:
+# "dataset", "species", "study", "technology".
+HARMONY_BATCH_KEY = "species"
+
+# Only relevant when HARMONY_BATCH_KEY is a list with 2+ entries. Controls
+# HOW multiple keys get combined:
+#   False (default): pass all keys to Harmony as separate covariates
+#     (harmonypy's vars_use / scanpy's multi-key support). Harmony corrects
+#     for each variable's effect roughly independently/additively.
+#   True: combine the listed keys into a single composite batch column
+#     first (e.g. species "human" + study "study1" -> "human_study1"), and
+#     integrate on that one combined column instead. This treats every
+#     unique combination as its own distinct batch, which captures
+#     INTERACTION effects between the variables (e.g. a species x study
+#     combination that behaves unusually together) that treating them as
+#     separate additive covariates would miss. Generally the more thorough
+#     option when you suspect the batch effects aren't independent, at the
+#     cost of more, smaller batches for Harmony to work with (which can
+#     hurt correction quality if any combination has very few cells).
+USE_COMBINED_BATCH_KEY = False
+
 # If True, mean-center each species' embeddings (subtract that species'
 # overall mean X_uce vector from every one of its cells) before computing
-# distances, UMAP, and the separation score. This removes a per-species
-# "offset" in embedding space — useful if species identity is dominating
-# over cell-type similarity in your comparisons. 
-CENTER_BY_SPECIES = True
+# distances, UMAP, and the separation score.
+CENTER_BY_SPECIES = False
 
 # Where to save outputs
 OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances"
@@ -147,8 +209,11 @@ def load_and_merge(dataset_paths, cell_type_cols, species_map):
         a.obs["cell_type_std"] = a.obs[ct_col].astype(str).str.strip().str.lower()
         a.obs["dataset"] = name
         a.obs["species"] = species_map.get(name, "unknown")
+        a.obs["study"] = study_map.get(name, "unknown")
+        a.obs["technology"] = technology_map.get(name, "unknown")
         # keep only what we need to avoid var mismatch issues on concat
-        a = ad.AnnData(X=a.X, obs=a.obs[["cell_type_std", "dataset", "species"]].copy(),
+        a = ad.AnnData(X=a.X, obs=a.obs[["cell_type_std", "dataset", "species",
+                                          "study", "technology"]].copy(),
                         obsm={"X_uce": a.obsm["X_uce"]})
         adatas.append(a)
  
@@ -157,7 +222,9 @@ def load_and_merge(dataset_paths, cell_type_cols, species_map):
                               combined.obs["cell_type_std"].astype(str))
     n_species = combined.obs["species"].nunique()
     print(f"Loaded {combined.n_obs} cells across {len(dataset_paths)} datasets "
-          f"({n_species} species), "
+          f"({n_species} species, "
+          f"{combined.obs['study'].nunique()} studies, "
+          f"{combined.obs['technology'].nunique()} technologies), "
           f"{combined.obs['cell_type_std'].nunique()} unique cell type labels.")
     return combined
  
@@ -182,6 +249,73 @@ def center_by_species(combined):
     print("Per-species centering applied: subtracted each species' mean "
           "embedding from its cells (stored in .obsm['X_uce_centered']).")
     return combined
+  
+def run_harmony_integration(combined, batch_key="species", use_rep="X_uce",
+                           combine_keys=False):
+  """
+  Run Harmony on the UCE embeddings directly (not on a PCA reduction —
+  X_uce is already a compact learned representation, so Harmony is run
+  on it as-is). Tries scanpy's harmony_integrate wrapper first; falls
+  back to calling harmonypy directly if that's not available in this
+  scanpy version. Stores the result in .obsm["X_uce_harmony"].
+  
+  batch_key: a single .obs column name, or a list of them.
+  combine_keys: only relevant if batch_key is a list with 2+ entries.
+      If True, the listed columns are combined into one composite column
+      (e.g. species + study -> "human_study1") and Harmony integrates on
+      that single column, treating every unique combination as its own
+      batch (captures interaction effects). If False, all keys are
+      passed to Harmony as separate covariates instead.
+  
+  Requires the 'harmonypy' package: pip install harmonypy
+  """
+  batch_keys = [batch_key] if isinstance(batch_key, str) else list(batch_key)
+  missing = [k for k in batch_keys if k not in combined.obs]
+  if missing:
+      raise ValueError(f"HARMONY_BATCH_KEY column(s) not found in .obs: "
+                        f"{missing} (available: {list(combined.obs.columns)})")
+  
+  if combine_keys and len(batch_keys) > 1:
+      combined_col = "_".join(batch_keys) + "_combined"
+      combined.obs[combined_col] = combined.obs[batch_keys].astype(str).agg("_".join, axis=1)
+      n_combos = combined.obs[combined_col].nunique()
+      print(f"Combined {batch_keys} into '{combined_col}' "
+            f"({n_combos} unique combinations). Integrating on this "
+            f"single composite column.")
+      small_combos = combined.obs[combined_col].value_counts()
+      small_combos = small_combos[small_combos < 10]
+      if len(small_combos):
+          print(f"WARNING: {len(small_combos)} combination(s) have fewer "
+                f"than 10 cells — Harmony correction quality for those "
+                f"groups may be poor:\n{small_combos}")
+      harmony_keys = [combined_col]
+  else:
+      harmony_keys = batch_keys
+  
+  try:
+      import scanpy.external as sce
+      sce.pp.harmony_integrate(combined, key=harmony_keys, basis=use_rep,
+                                adjusted_basis="X_uce_harmony")
+      print(f"Harmony integration complete via scanpy.external "
+            f"(batch_key(s)={harmony_keys}). Stored in .obsm['X_uce_harmony'].")
+  except ImportError:
+      try:
+          import harmonypy
+      except ImportError:
+          raise ImportError(
+              "Harmony integration requires the 'harmonypy' package. "
+              "Install it with: pip install harmonypy"
+          )
+      print("scanpy.external.pp.harmony_integrate unavailable — "
+            "falling back to calling harmonypy directly.")
+      ho = harmonypy.run_harmony(
+          combined.obsm[use_rep], combined.obs, harmony_keys
+      )
+      combined.obsm["X_uce_harmony"] = ho.Z_corr.T
+      print(f"Harmony integration complete via harmonypy "
+            f"(batch_key(s)={harmony_keys}). Stored in .obsm['X_uce_harmony'].")
+  
+  return combined
  
  
 def _make_rank_lookup(order_list, label_for_warning):
@@ -370,10 +504,19 @@ def plot_umap(combined, out_path, use_rep="X_uce"):
  
  
 def main():
-    combined = load_and_merge(DATASET_PATHS, CELL_TYPE_COLS, SPECIES)
+    combined = load_and_merge(DATASET_PATHS, CELL_TYPE_COLS, SPECIES, STUDY, TECHNOLOGY)
  
     use_rep = "X_uce"
-    if CENTER_BY_SPECIES:
+    if USE_HARMONY:
+        if CENTER_BY_SPECIES:
+            print("Both USE_HARMONY and CENTER_BY_SPECIES are True — "
+                  "running Harmony only and skipping centering, since "
+                  "combining both is usually redundant.")
+        combined = run_harmony_integration(combined, batch_key=HARMONY_BATCH_KEY,
+                                            use_rep=use_rep,
+                                            combine_keys=USE_COMBINED_BATCH_KEY)
+        use_rep = "X_uce_harmony"
+    elif CENTER_BY_SPECIES:
         combined = center_by_species(combined)
         use_rep = "X_uce_centered"
  
@@ -384,7 +527,12 @@ def main():
  
     same_vs_different_type_scores(combined, metric=METRIC, use_rep=use_rep)
  
-    title_suffix = " (species-centered)" if CENTER_BY_SPECIES else ""
+    if USE_HARMONY:
+        title_suffix = " (Harmony-integrated)"
+    elif CENTER_BY_SPECIES:
+        title_suffix = " (species-centered)"
+    else:
+        title_suffix = ""
     plot_heatmap(dist_df, f"{OUT_PREFIX}_heatmap.png",
                  title=f"UCE centroid distances: species (phylogenetic order) | cell type{title_suffix}")
  
@@ -402,4 +550,3 @@ def main():
  
 if __name__ == "__main__":
     main()
- 
