@@ -12,30 +12,23 @@ cd /work/hcn4/260630_vertCons_wd/hg38Coverage/
 
 fbPath="/hpc/group/vertgenlab/cl454/bin/x86_64/" 
 archive="/hpc/group/vertgenlab/christi/vertCons/zippedAlignments/hg38.wholeGenomeAlignments.60way.tar.gz"
-tmpdir=$(mktemp -d)
-fifo="$tmpdir/stdin.bed"
 filelist="/work/hcn4/260630_vertCons_wd/hg38Coverage/filelist.txt"
 
-mkfifo "$fifo"
-
-# Get the file for this array task
 file=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$filelist")
 
 if [[ -z "$file" ]]; then
-    echo "No file found for array index $SLURM_ARRAY_TASK_ID"
+    echo "No file found for array index $SLURM_ARRAY_TASK_ID" >&2
     exit 1
 fi
 
 echo "Processing: $file"
 
 tmpdir=$(mktemp -d)
-fifo="$tmpdir/stdin.bed"
-mkfifo "$fifo"
+trap 'rm -rf "$tmpdir"' EXIT
 
-# Extract, normalize whitespace to tabs, feed into FIFO
-tar -xzOf "$archive" "$file" | awk '{$1=$1}1' OFS='\t' > "$fifo" &
+bed="$tmpdir/input.bed"
 
-"${fbPath}/featureBits" hg38 "$fifo"
+tar -xzOf "$archive" "$file" |
+    awk 'BEGIN { OFS="\t" } NF { print $1, $2, $3, $4 }' > "$bed"
 
-wait
-rm -rf "$tmpdir"
+"${fbPath}/featureBits" hg38 "$bed"
