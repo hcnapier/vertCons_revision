@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 DATASET_PATHS = {
     "dataset1": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Bos_taurus_uce_adata.h5ad",
     "dataset2": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Canis_lupus_familiaris_uce_adata.h5ad",
-    "dataset3": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Capra_hircus_uce_adata.h5ad"
+    "dataset3": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Capra_hircus_uce_adata.h5ad",
     "dataset3": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Cavia_porcellus_uce_adata.h5ad",
     "dataset4": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Homo_sapiens_uce_adata.h5ad",
     "dataset5": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Macaca_fascicularis_uce_adata.h5ad",
@@ -129,6 +129,7 @@ CELL_TYPE_ONTOLOGY_ORDER = [
     "invasive",
     "stb",
     "s-tgc",
+    "spt",
     "gc",
     "unc", 
     "bnc",
@@ -139,10 +140,10 @@ CELL_TYPE_ONTOLOGY_ORDER = [
     "leu",
     "bcell",
     "tcell",
-    "nkcell",
+    "nkcells",
     "mono",
     "mac",
-    "DC",
+    "dc",
     "neu"
 ]
 
@@ -164,7 +165,7 @@ USE_HARMONY = True
 # ["species", "study", "technology"] — Harmony supports multiple batch
 # variables simultaneously. Available columns after load_and_merge are:
 # "dataset", "species", "study", "technology".
-HARMONY_BATCH_KEY = "species"
+HARMONY_BATCH_KEY = ["species", "study", "technology"]
 
 # Only relevant when HARMONY_BATCH_KEY is a list with 2+ entries. Controls
 # HOW multiple keys get combined:
@@ -181,7 +182,7 @@ HARMONY_BATCH_KEY = "species"
 #     option when you suspect the batch effects aren't independent, at the
 #     cost of more, smaller batches for Harmony to work with (which can
 #     hurt correction quality if any combination has very few cells).
-USE_COMBINED_BATCH_KEY = False
+USE_COMBINED_BATCH_KEY = True
 
 # If True, mean-center each species' embeddings (subtract that species'
 # overall mean X_uce vector from every one of its cells) before computing
@@ -193,9 +194,10 @@ OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances"
 
 # =============================================================================
 
-def load_and_merge(dataset_paths, cell_type_cols, species_map):
+def load_and_merge(dataset_paths, cell_type_cols, species_map, study_map, technology_map):
     """Load each embedded dataset, standardize cell type column name, tag
-    dataset origin and species, and concatenate into one AnnData."""
+    dataset origin, species, study, and technology, and concatenate into
+    one AnnData."""
     adatas = []
     for name, path in dataset_paths.items():
         a = sc.read_h5ad(path)
@@ -251,72 +253,86 @@ def center_by_species(combined):
     return combined
   
 def run_harmony_integration(combined, batch_key="species", use_rep="X_uce",
-                           combine_keys=False):
-  """
-  Run Harmony on the UCE embeddings directly (not on a PCA reduction —
-  X_uce is already a compact learned representation, so Harmony is run
-  on it as-is). Tries scanpy's harmony_integrate wrapper first; falls
-  back to calling harmonypy directly if that's not available in this
-  scanpy version. Stores the result in .obsm["X_uce_harmony"].
-  
-  batch_key: a single .obs column name, or a list of them.
-  combine_keys: only relevant if batch_key is a list with 2+ entries.
-      If True, the listed columns are combined into one composite column
-      (e.g. species + study -> "human_study1") and Harmony integrates on
-      that single column, treating every unique combination as its own
-      batch (captures interaction effects). If False, all keys are
-      passed to Harmony as separate covariates instead.
-  
-  Requires the 'harmonypy' package: pip install harmonypy
-  """
-  batch_keys = [batch_key] if isinstance(batch_key, str) else list(batch_key)
-  missing = [k for k in batch_keys if k not in combined.obs]
-  if missing:
-      raise ValueError(f"HARMONY_BATCH_KEY column(s) not found in .obs: "
-                        f"{missing} (available: {list(combined.obs.columns)})")
-  
-  if combine_keys and len(batch_keys) > 1:
-      combined_col = "_".join(batch_keys) + "_combined"
-      combined.obs[combined_col] = combined.obs[batch_keys].astype(str).agg("_".join, axis=1)
-      n_combos = combined.obs[combined_col].nunique()
-      print(f"Combined {batch_keys} into '{combined_col}' "
-            f"({n_combos} unique combinations). Integrating on this "
-            f"single composite column.")
-      small_combos = combined.obs[combined_col].value_counts()
-      small_combos = small_combos[small_combos < 10]
-      if len(small_combos):
-          print(f"WARNING: {len(small_combos)} combination(s) have fewer "
-                f"than 10 cells — Harmony correction quality for those "
-                f"groups may be poor:\n{small_combos}")
-      harmony_keys = [combined_col]
-  else:
-      harmony_keys = batch_keys
-  
-  try:
-      import scanpy.external as sce
-      sce.pp.harmony_integrate(combined, key=harmony_keys, basis=use_rep,
-                                adjusted_basis="X_uce_harmony")
-      print(f"Harmony integration complete via scanpy.external "
-            f"(batch_key(s)={harmony_keys}). Stored in .obsm['X_uce_harmony'].")
-  except ImportError:
-      try:
-          import harmonypy
-      except ImportError:
-          raise ImportError(
-              "Harmony integration requires the 'harmonypy' package. "
-              "Install it with: pip install harmonypy"
-          )
-      print("scanpy.external.pp.harmony_integrate unavailable — "
-            "falling back to calling harmonypy directly.")
-      ho = harmonypy.run_harmony(
-          combined.obsm[use_rep], combined.obs, harmony_keys
-      )
-      combined.obsm["X_uce_harmony"] = ho.Z_corr.T
-      print(f"Harmony integration complete via harmonypy "
-            f"(batch_key(s)={harmony_keys}). Stored in .obsm['X_uce_harmony'].")
-  
-  return combined
+                             combine_keys=False):
+    """
+    Run Harmony on the UCE embeddings directly (not on a PCA reduction —
+    X_uce is already a compact learned representation, so Harmony is run
+    on it as-is). Calls harmonypy directly rather than
+    scanpy.external.pp.harmony_integrate, since that wrapper's unconditional
+    output transpose is broken for current harmonypy versions (see note in
+    the function body). Stores the result in .obsm["X_uce_harmony"].
  
+    batch_key: a single .obs column name, or a list of them.
+    combine_keys: only relevant if batch_key is a list with 2+ entries.
+        If True, the listed columns are combined into one composite column
+        (e.g. species + study -> "human_study1") and Harmony integrates on
+        that single column, treating every unique combination as its own
+        batch (captures interaction effects). If False, all keys are
+        passed to Harmony as separate covariates instead.
+ 
+    Requires the 'harmonypy' package: pip install harmonypy
+    """
+    batch_keys = [batch_key] if isinstance(batch_key, str) else list(batch_key)
+    missing = [k for k in batch_keys if k not in combined.obs]
+    if missing:
+        raise ValueError(f"HARMONY_BATCH_KEY column(s) not found in .obs: "
+                          f"{missing} (available: {list(combined.obs.columns)})")
+ 
+    if combine_keys and len(batch_keys) > 1:
+        combined_col = "_".join(batch_keys) + "_combined"
+        combined.obs[combined_col] = combined.obs[batch_keys].astype(str).agg("_".join, axis=1)
+        n_combos = combined.obs[combined_col].nunique()
+        print(f"Combined {batch_keys} into '{combined_col}' "
+              f"({n_combos} unique combinations). Integrating on this "
+              f"single composite column.")
+        small_combos = combined.obs[combined_col].value_counts()
+        small_combos = small_combos[small_combos < 10]
+        if len(small_combos):
+            print(f"WARNING: {len(small_combos)} combination(s) have fewer "
+                  f"than 10 cells — Harmony correction quality for those "
+                  f"groups may be poor:\n{small_combos}")
+        harmony_keys = [combined_col]
+    else:
+        harmony_keys = batch_keys
+ 
+    # NOTE: we deliberately do NOT use scanpy.external.pp.harmony_integrate
+    # here. That wrapper unconditionally transposes harmonypy's output
+    # (Z_corr.T), which was correct for harmonypy <0.1.0 (dims x cells) but
+    # is WRONG for harmonypy >=0.1.0, which already returns Z_corr as
+    # (cells x dims) — see https://github.com/scverse/scanpy/issues/3940.
+    # Calling harmonypy directly and checking the actual shape avoids
+    # depending on which harmonypy version happens to be installed.
+    try:
+        import harmonypy
+    except ImportError:
+        raise ImportError(
+            "Harmony integration requires the 'harmonypy' package. "
+            "Install it with: pip install harmonypy"
+        )
+ 
+    ho = harmonypy.run_harmony(combined.obsm[use_rep], combined.obs, harmony_keys)
+    Z = np.asarray(ho.Z_corr)
+    n_cells = combined.n_obs
+ 
+    if Z.shape[0] == n_cells:
+        corrected = Z  # already (cells x dims) — harmonypy >=0.1.0
+    elif Z.shape[1] == n_cells:
+        corrected = Z.T  # (dims x cells) — older harmonypy, needs transpose
+        print("Detected older harmonypy output orientation (dims x cells) — transposed.")
+    else:
+        raise ValueError(
+            f"harmonypy output shape {Z.shape} doesn't match n_cells "
+            f"({n_cells}) on either axis — can't determine correct "
+            f"orientation. This may indicate a harmonypy version with a "
+            f"different output format than expected; inspect ho.Z_corr "
+            f"manually."
+        )
+    combined.obsm["X_uce_harmony"] = corrected
+    print(f"Harmony integration complete via harmonypy "
+          f"(batch_key(s)={harmony_keys}). Stored in .obsm['X_uce_harmony'] "
+          f"with shape {corrected.shape}.")
+ 
+    return combined
  
 def _make_rank_lookup(order_list, label_for_warning):
     """
