@@ -31,15 +31,14 @@ import matplotlib.pyplot as plt
 # Paths to UCE-embedded .h5ad files (output of eval_single_anndata /
 # uce-eval-single-anndata — each should already have .obsm["X_uce"]).
 DATASET_PATHS = {
-    "dataset1": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Bos_taurus_uce_adata.h5ad",
-    "dataset2": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Canis_lupus_familiaris_uce_adata.h5ad",
-    "dataset3": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Capra_hircus_uce_adata.h5ad",
-    "dataset4": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Homo_sapiens_uce_adata.h5ad",
-    "dataset5": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Macaca_fascicularis_uce_adata.h5ad",
-    "dataset6": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Mus_musculus_uce_adata.h5ad",
-    "dataset7": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Oryctolagus_cuniculus_uce_adata.h5ad",
-    "dataset8": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Rattus_norvegicus_shrutx_uce_adata.h5ad",
-    "dataset9": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Sus_scrofa_uce_adata.h5ad",
+    "dataset1": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Canis_lupus_familiaris_uce_adata.h5ad",
+    "dataset2": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Capra_hircus_uce_adata.h5ad",
+    "dataset3": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Homo_sapiens_uce_adata.h5ad",
+    "dataset4": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Macaca_fascicularis_uce_adata.h5ad",
+    "dataset5": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Mus_musculus_uce_adata.h5ad",
+    "dataset6": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Oryctolagus_cuniculus_uce_adata.h5ad",
+    "dataset7": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Rattus_norvegicus_shrutx_uce_adata.h5ad",
+    "dataset8": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Sus_scrofa_uce_adata.h5ad",
 }
 
 # Name of the .obs column holding cell type labels in EACH dataset.
@@ -52,7 +51,6 @@ CELL_TYPE_COLS = {
     "dataset6": "napierCellTypes",
     "dataset7": "napierCellTypes",
     "dataset8": "napierCellTypes",
-    "dataset9": "napierCellTypes",
 }
 
 # Species of each dataset (used only for bookkeeping/reporting here — UCE
@@ -61,15 +59,14 @@ CELL_TYPE_COLS = {
 # filtering needed; just make sure you ran UCE itself with the correct
 # --species flag for each dataset when you generated the embeddings).
 SPECIES = {
-    "dataset1": "cow",
-    "dataset2": "dog",
-    "dataset3": "goat",
-    "dataset4": "human",
-    "dataset5": "macaque",
-    "dataset6": "mouse",
-    "dataset7": "rabbit",
-    "dataset8": "rat",
-    "dataset9": "pig",
+    "dataset1": "dog",
+    "dataset2": "goat",
+    "dataset3": "human",
+    "dataset4": "macaque",
+    "dataset5": "mouse",
+    "dataset6": "rabbit",
+    "dataset7": "rat",
+    "dataset8": "pig",
 }
 
 
@@ -85,7 +82,6 @@ SPECIES_PHYLO_ORDER = [
     "mouse",
     "rabbit",
     "pig", 
-    "cow", 
     "goat",
     "dog"
 ]
@@ -94,26 +90,24 @@ SPECIES_PHYLO_ORDER = [
 STUDY = {
     "dataset1": "Tan",
     "dataset2": "Tan",
-    "dataset3": "Tan",
-    "dataset4": "Tsang",
-    "dataset5": "Wang",
-    "dataset6": "Jiang",
-    "dataset7": "Tan",
-    "dataset8": "Iqbal",
-    "dataset9": "Tan"
+    "dataset3": "Tsang",
+    "dataset4": "Wang",
+    "dataset5": "Jiang",
+    "dataset6": "Tan",
+    "dataset7": "Iqbal",
+    "dataset8": "Tan"
 }
  
 # Sequencing/profiling technology used for each dataset
 TECHNOLOGY = {
     "dataset1": "BGISEQ",
     "dataset2": "BGISEQ",
-    "dataset3": "BGISEQ",
+    "dataset3": "Illumina",
     "dataset4": "Illumina",
     "dataset5": "Illumina",
-    "dataset6": "Illumina",
-    "dataset7": "BGISEQ",
-    "dataset8": "Illumina",
-    "dataset9": "BGISEQ"
+    "dataset6": "BGISEQ",
+    "dataset7": "Illumina",
+    "dataset8": "BGISEQ"
 }
  
 # Order cell types should appear in the cell-type-organized heatmap — e.g.
