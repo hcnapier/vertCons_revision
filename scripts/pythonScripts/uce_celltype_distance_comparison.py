@@ -9,7 +9,11 @@ Workflow:
   3. Compute cell-type centroid distances by species (pooling all datasets
      from the same species together).
   4. Compute a same-type-vs-different-type separation score.
-  5. Save a distance heatmap and a UMAP colored by dataset / cell type.
+  5. Run a study-controlled diagnostic that isolates genuine species/
+     cell-type separation from study/technology batch effects, using the
+     subset of datasets that share a single study (see
+     study_controlled_diagnostic()).
+  6. Save a distance heatmap and a UMAP colored by dataset / cell type.
 
 python uce_celltype_distance_comparison.py
 """
@@ -24,19 +28,26 @@ import matplotlib.pyplot as plt
 
 # ============================== CONFIG ======================================
 
-# Paths to UCE-embedded .h5ad files (output of eval_single_anndata / 
+# Paths to UCE-embedded .h5ad files (output of eval_single_anndata /
 # uce-eval-single-anndata — each should already have .obsm["X_uce"]).
+#
+# NOTE: previously "dataset3" was accidentally used as the key for both
+# Capra_hircus and Cavia_porcellus, which silently dropped the goat entry
+# (a later duplicate dict key just overwrites the earlier one in Python)
+# and shifted every dataset after it out of alignment with SPECIES/STUDY/
+# TECHNOLOGY below. Re-keyed here as dataset1..dataset10 to match those
+# dicts one-to-one — double check these paths are actually correct on disk.
 DATASET_PATHS = {
     "dataset1": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Bos_taurus_uce_adata.h5ad",
     "dataset2": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Canis_lupus_familiaris_uce_adata.h5ad",
     "dataset3": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Capra_hircus_uce_adata.h5ad",
-    "dataset3": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Cavia_porcellus_uce_adata.h5ad",
-    "dataset4": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Homo_sapiens_uce_adata.h5ad",
-    "dataset5": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Macaca_fascicularis_uce_adata.h5ad",
-    "dataset6": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Mus_musculus_uce_adata.h5ad",
-    "dataset7": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Oryctolagus_cuniculus_uce_adata.h5ad",
-    "dataset8": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Rattus_norvegicus_shrutx_uce_adata.h5ad",
-    "dataset9": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Sus_scrofa_uce_adata.h5ad",
+    "dataset4": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Cavia_porcellus_uce_adata.h5ad",
+    "dataset5": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Homo_sapiens_uce_adata.h5ad",
+    "dataset6": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Macaca_fascicularis_uce_adata.h5ad",
+    "dataset7": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Mus_musculus_uce_adata.h5ad",
+    "dataset8": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Oryctolagus_cuniculus_uce_adata.h5ad",
+    "dataset9": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Rattus_norvegicus_shrutx_uce_adata.h5ad",
+    "dataset10": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Sus_scrofa_uce_adata.h5ad",
 }
 
 # Name of the .obs column holding cell type labels in EACH dataset.
@@ -49,7 +60,8 @@ CELL_TYPE_COLS = {
     "dataset6": "napierCellTypes",
     "dataset7": "napierCellTypes",
     "dataset8": "napierCellTypes",
-    "dataset9": "napierCellTypes"
+    "dataset9": "napierCellTypes",
+    "dataset10": "napierCellTypes",
 }
 
 # Species of each dataset (used only for bookkeeping/reporting here — UCE
@@ -182,12 +194,22 @@ HARMONY_BATCH_KEY = ["species", "study", "technology"]
 #     option when you suspect the batch effects aren't independent, at the
 #     cost of more, smaller batches for Harmony to work with (which can
 #     hurt correction quality if any combination has very few cells).
-USE_COMBINED_BATCH_KEY = True
+USE_COMBINED_BATCH_KEY = False
 
 # If True, mean-center each species' embeddings (subtract that species'
 # overall mean X_uce vector from every one of its cells) before computing
 # distances, UMAP, and the separation score.
 CENTER_BY_SPECIES = False
+
+# --- Study-controlled diagnostic ---
+# Which .obs["study"] value to use as the "study-controlled" subset for
+# study_controlled_diagnostic() — i.e. a study that profiled multiple
+# species together (so study/technology are held constant and any
+# remaining same-vs-different-type separation reflects genuine species/
+# cell-type biology, not a study batch effect). If None, the script
+# auto-picks the study with the most distinct species (ties broken
+# alphabetically) and prints what it picked.
+DIAGNOSTIC_STUDY = "Tan"
 
 # Where to save outputs
 OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances"
@@ -391,13 +413,17 @@ def centroid_distance_matrix(combined, metric="cosine", use_rep="X_uce",
  
  
 def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group=500,
-                                   use_rep="X_uce"):
+                                   use_rep="X_uce", verbose=True):
     """
     For each cell type present in 2+ datasets, compare:
       - distances between cells of the SAME type across DIFFERENT datasets
       - distances between cells of DIFFERENT types (pooled, across datasets)
     A well-aligned embedding should show same-type-cross-dataset distances
     noticeably smaller than different-type distances.
+
+    Returns (same_type_dists, diff_type_dists, ratio) where ratio is
+    diff_type_dists.mean() / same_type_dists.mean(), or None if there
+    weren't any same-type-cross-dataset pairs to compute it from.
     """
     X = combined.obsm[use_rep]
     obs = combined.obs.reset_index(drop=True)
@@ -423,8 +449,9 @@ def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group
         same_type_dists.append(d[iu])
  
     if not same_type_dists:
-        print("No cell type appears in 2+ datasets — can't compute "
-              "same-type-cross-dataset scores. Check your label harmonization.")
+        if verbose:
+            print("No cell type appears in 2+ datasets — can't compute "
+                  "same-type-cross-dataset scores. Check your label harmonization.")
         same_type_dists = np.array([])
     else:
         same_type_dists = np.concatenate(same_type_dists)
@@ -437,19 +464,146 @@ def same_vs_different_type_scores(combined, metric="cosine", max_cells_per_group
     diff_mask = types_all[iu[0]] != types_all[iu[1]]
     diff_type_dists = d_all[iu][diff_mask]
  
-    print("\n--- Same-type-vs-different-type separation ---")
+    ratio = None
+    if verbose:
+        print("\n--- Same-type-vs-different-type separation ---")
     if len(same_type_dists):
-        print(f"Same cell type, different dataset: "
-              f"mean={same_type_dists.mean():.4f}, n={len(same_type_dists)}")
-    print(f"Different cell type (pooled):        "
-          f"mean={diff_type_dists.mean():.4f}, n={len(diff_type_dists)}")
+        if verbose:
+            print(f"Same cell type, different dataset: "
+                  f"mean={same_type_dists.mean():.4f}, n={len(same_type_dists)}")
+    if verbose:
+        print(f"Different cell type (pooled):        "
+              f"mean={diff_type_dists.mean():.4f}, n={len(diff_type_dists)}")
     if len(same_type_dists):
-        print(f"Separation ratio (diff/same): "
-              f"{diff_type_dists.mean() / same_type_dists.mean():.2f}x "
-              f"(>1 means the embedding separates cell types better than "
-              f"it separates datasets)")
+        ratio = diff_type_dists.mean() / same_type_dists.mean()
+        if verbose:
+            print(f"Separation ratio (diff/same): "
+                  f"{ratio:.2f}x "
+                  f"(>1 means the embedding separates cell types better than "
+                  f"it separates datasets)")
  
-    return same_type_dists, diff_type_dists
+    return same_type_dists, diff_type_dists, ratio
+
+
+def study_controlled_diagnostic(combined, study_name=None, metric="cosine",
+                                 max_cells_per_group=500, reps_to_compare=None):
+    """
+    Isolate genuine species/cell-type separation from study/technology
+    batch effects.
+
+    The same_vs_different_type_scores() ratio computed on the FULL dataset
+    is ambiguous whenever species and study are confounded (i.e. whenever
+    a species only appears in one study): "same cell type, different
+    dataset" pairs for those species are simultaneously "different study"
+    pairs, so you can't tell whether the embedding is separating species
+    biology or just a study/technology batch effect.
+
+    This function restricts the same computation to the subset of datasets
+    sharing a single `study` value that itself contains multiple species
+    (e.g. several species profiled together in one paper, one technology).
+    Within that subset, study and technology are held constant, so "same
+    cell type, different dataset" pairs are necessarily cross-species pairs
+    that share study/technology — any remaining separation there reflects
+    real species/cell-type biology rather than a study artifact.
+
+    study_name: which combined.obs["study"] value defines the
+        study-controlled subset. If None, auto-picks the study with the
+        most distinct species among its datasets (ties broken
+        alphabetically) and prints what it picked. Raises if the chosen
+        study only has one species (nothing to isolate).
+    reps_to_compare: list of .obsm keys to compute the diagnostic for. If
+        None, uses every rep in combined.obsm that is one of
+        ["X_uce", "X_uce_centered", "X_uce_harmony"] and is actually
+        present, in that order.
+
+    Returns a pandas DataFrame with one row per rep, comparing the
+    full-dataset ratio to the study-controlled ratio.
+    """
+    if reps_to_compare is None:
+        reps_to_compare = [r for r in ["X_uce", "X_uce_centered", "X_uce_harmony"]
+                            if r in combined.obsm]
+
+    if study_name is None:
+        species_per_study = combined.obs.groupby("study")["species"].nunique()
+        candidates = species_per_study[species_per_study > 1]
+        if candidates.empty:
+            raise ValueError(
+                "No study in your data profiles more than one species — "
+                "can't build a study-controlled subset. Set DIAGNOSTIC_STUDY "
+                "explicitly if this is wrong, or skip this diagnostic."
+            )
+        # ties broken alphabetically by study name
+        top_studies = candidates[candidates == candidates.max()].sort_index()
+        study_name = top_studies.index[0]
+        print(f"DIAGNOSTIC_STUDY not set — auto-picked study '{study_name}' "
+              f"({candidates[study_name]} species) as the study-controlled subset.")
+
+    if study_name not in set(combined.obs["study"]):
+        raise ValueError(f"study_name '{study_name}' not found in .obs['study']. "
+                          f"Available: {sorted(combined.obs['study'].unique())}")
+
+    sub = combined[combined.obs["study"] == study_name].copy()
+    n_species_sub = sub.obs["species"].nunique()
+    n_datasets_sub = sub.obs["dataset"].nunique()
+    species_list = sorted(sub.obs["species"].unique())
+
+    print(f"\n=== Study-controlled diagnostic: study = '{study_name}' ===")
+    print(f"{n_datasets_sub} dataset(s), {n_species_sub} species: {species_list}")
+    print(f"{sub.obs['technology'].nunique()} technology value(s) in this subset: "
+          f"{sorted(sub.obs['technology'].unique())}")
+    if n_species_sub < 2:
+        raise ValueError(
+            f"Study '{study_name}' only has {n_species_sub} species in this "
+            f"data — there's nothing to isolate species separation from "
+            f"here. Pick a different DIAGNOSTIC_STUDY."
+        )
+    per_species_datasets = sub.obs.groupby("species")["dataset"].nunique()
+    if (per_species_datasets > 1).any():
+        print("NOTE: some species in this subset have >1 dataset, so "
+              "'same cell type, different dataset' pairs within the subset "
+              "aren't guaranteed to be cross-species — interpret with that "
+              "in mind:\n" + per_species_datasets.to_string())
+    else:
+        print("Each species in this subset has exactly one dataset, so "
+              "'same cell type, different dataset' pairs below are "
+              "necessarily cross-species, same-study, same-technology "
+              "pairs — a clean read on species/cell-type separation.")
+
+    rows = []
+    for rep in reps_to_compare:
+        if rep not in combined.obsm:
+            print(f"Skipping rep '{rep}': not found in combined.obsm.")
+            continue
+        print(f"\n--- rep = {rep} ---")
+        print("Full dataset (all species, all studies):")
+        _, _, full_ratio = same_vs_different_type_scores(
+            combined, metric=metric, max_cells_per_group=max_cells_per_group,
+            use_rep=rep, verbose=True)
+        print(f"\nStudy-controlled subset ('{study_name}' only, "
+              f"{n_species_sub} species):")
+        _, _, sub_ratio = same_vs_different_type_scores(
+            sub, metric=metric, max_cells_per_group=max_cells_per_group,
+            use_rep=rep, verbose=True)
+        rows.append({
+            "rep": rep,
+            "full_dataset_ratio": full_ratio,
+            f"study_controlled_ratio ({study_name})": sub_ratio,
+        })
+
+    result = pd.DataFrame(rows)
+    print("\n=== Summary: full-dataset vs. study-controlled separation ratio ===")
+    print(result.to_string(index=False))
+    print(
+        "\nInterpretation: if the study-controlled ratio is close to the "
+        "full-dataset ratio, most of the apparent cell-type separation "
+        "reflects genuine species/cell-type biology rather than a study "
+        "batch effect. If the study-controlled ratio collapses toward 1.0 "
+        "(or is much lower than the full-dataset ratio), a substantial "
+        "part of the full-dataset separation was likely driven by study/"
+        "technology confounds rather than biology."
+    )
+    return result
+
  
 def plot_heatmap(dist_df, out_path, title="UCE centroid distances: species | cell type"):
     fig, ax = plt.subplots(figsize=(0.55 * len(dist_df) + 3, 0.55 * len(dist_df) + 3))
@@ -542,6 +696,12 @@ def main():
     print(f"Saved centroid distance matrix to {OUT_PREFIX}_centroid_distances.csv")
  
     same_vs_different_type_scores(combined, metric=METRIC, use_rep=use_rep)
+
+    diagnostic_df = study_controlled_diagnostic(
+        combined, study_name=DIAGNOSTIC_STUDY, metric=METRIC)
+    diagnostic_df.to_csv(f"{OUT_PREFIX}_study_controlled_diagnostic.csv", index=False)
+    print(f"Saved study-controlled diagnostic to "
+          f"{OUT_PREFIX}_study_controlled_diagnostic.csv")
  
     if USE_HARMONY:
         title_suffix = " (Harmony-integrated)"
