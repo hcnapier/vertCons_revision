@@ -177,7 +177,7 @@ USE_HARMONY = True
 # ["species", "study", "technology"] — Harmony supports multiple batch
 # variables simultaneously. Available columns after load_and_merge are:
 # "dataset", "species", "study", "technology".
-HARMONY_BATCH_KEY = ["species", "study", "technology"]
+HARMONY_BATCH_KEY = ["study", "technology"]
 
 # Only relevant when HARMONY_BATCH_KEY is a list with 2+ entries. Controls
 # HOW multiple keys get combined:
@@ -661,7 +661,7 @@ def plot_umap(combined, out_path, use_rep="X_uce"):
     n_panels = 3 if multi_species else 2
     fig, axes = plt.subplots(1, n_panels, figsize=(7 * n_panels, 6))
  
-    sc.pl.umap(combined, color="dataset", ax=axes[0], show=False, title="Dataset")
+    sc.pl.umap(combined, color="study", ax=axes[0], show=False, title="Study")
     sc.pl.umap(combined, color="cell_type_std", ax=axes[1], show=False,
                title="Cell type", legend_fontsize=6)
     if multi_species:
