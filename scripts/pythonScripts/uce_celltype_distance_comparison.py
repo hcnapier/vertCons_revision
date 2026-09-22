@@ -30,24 +30,16 @@ import matplotlib.pyplot as plt
 
 # Paths to UCE-embedded .h5ad files (output of eval_single_anndata /
 # uce-eval-single-anndata — each should already have .obsm["X_uce"]).
-#
-# NOTE: previously "dataset3" was accidentally used as the key for both
-# Capra_hircus and Cavia_porcellus, which silently dropped the goat entry
-# (a later duplicate dict key just overwrites the earlier one in Python)
-# and shifted every dataset after it out of alignment with SPECIES/STUDY/
-# TECHNOLOGY below. Re-keyed here as dataset1..dataset10 to match those
-# dicts one-to-one — double check these paths are actually correct on disk.
 DATASET_PATHS = {
     "dataset1": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Bos_taurus_uce_adata.h5ad",
     "dataset2": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Canis_lupus_familiaris_uce_adata.h5ad",
     "dataset3": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Capra_hircus_uce_adata.h5ad",
-    "dataset4": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Cavia_porcellus_uce_adata.h5ad",
-    "dataset5": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Homo_sapiens_uce_adata.h5ad",
-    "dataset6": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Macaca_fascicularis_uce_adata.h5ad",
-    "dataset7": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Mus_musculus_uce_adata.h5ad",
-    "dataset8": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Oryctolagus_cuniculus_uce_adata.h5ad",
-    "dataset9": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Rattus_norvegicus_shrutx_uce_adata.h5ad",
-    "dataset10": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Sus_scrofa_uce_adata.h5ad",
+    "dataset4": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Homo_sapiens_uce_adata.h5ad",
+    "dataset5": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Macaca_fascicularis_uce_adata.h5ad",
+    "dataset6": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Mus_musculus_uce_adata.h5ad",
+    "dataset7": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Oryctolagus_cuniculus_uce_adata.h5ad",
+    "dataset8": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Rattus_norvegicus_shrutx_uce_adata.h5ad",
+    "dataset9": "/work/hcn4/260630_vertCons_wd/scTrx/uceEmbedded/Sus_scrofa_uce_adata.h5ad",
 }
 
 # Name of the .obs column holding cell type labels in EACH dataset.
@@ -61,7 +53,6 @@ CELL_TYPE_COLS = {
     "dataset7": "napierCellTypes",
     "dataset8": "napierCellTypes",
     "dataset9": "napierCellTypes",
-    "dataset10": "napierCellTypes",
 }
 
 # Species of each dataset (used only for bookkeeping/reporting here — UCE
@@ -73,13 +64,12 @@ SPECIES = {
     "dataset1": "cow",
     "dataset2": "dog",
     "dataset3": "goat",
-    "dataset4": "guineaPig",
-    "dataset5": "human",
-    "dataset6": "macaque",
-    "dataset7": "mouse",
-    "dataset8": "rabbit",
-    "dataset9": "rat",
-    "dataset10": "pig",
+    "dataset4": "human",
+    "dataset5": "macaque",
+    "dataset6": "mouse",
+    "dataset7": "rabbit",
+    "dataset8": "rat",
+    "dataset9": "pig",
 }
 
 
@@ -91,7 +81,6 @@ SPECIES = {
 SPECIES_PHYLO_ORDER = [
     "human",
     "macaque",
-    "guineaPig",
     "rat",
     "mouse",
     "rabbit",
@@ -106,13 +95,12 @@ STUDY = {
     "dataset1": "Tan",
     "dataset2": "Tan",
     "dataset3": "Tan",
-    "dataset4": "Tan", 
-    "dataset5": "Tsang",
-    "dataset6": "Wang",
-    "dataset7": "Jiang",
-    "dataset8": "Tan",
-    "dataset9": "Iqbal",
-    "dataset10": "Tan"
+    "dataset4": "Tsang",
+    "dataset5": "Wang",
+    "dataset6": "Jiang",
+    "dataset7": "Tan",
+    "dataset8": "Iqbal",
+    "dataset9": "Tan"
 }
  
 # Sequencing/profiling technology used for each dataset
@@ -120,13 +108,12 @@ TECHNOLOGY = {
     "dataset1": "BGISEQ",
     "dataset2": "BGISEQ",
     "dataset3": "BGISEQ",
-    "dataset4": "BGISEQ",
+    "dataset4": "Illumina",
     "dataset5": "Illumina",
     "dataset6": "Illumina",
-    "dataset7": "Illumina",
-    "dataset8": "BGISEQ",
-    "dataset9": "Illumina",
-    "dataset10": "BGISEQ"
+    "dataset7": "BGISEQ",
+    "dataset8": "Illumina",
+    "dataset9": "BGISEQ"
 }
  
 # Order cell types should appear in the cell-type-organized heatmap — e.g.
@@ -177,7 +164,7 @@ USE_HARMONY = True
 # ["species", "study", "technology"] — Harmony supports multiple batch
 # variables simultaneously. Available columns after load_and_merge are:
 # "dataset", "species", "study", "technology".
-HARMONY_BATCH_KEY = ["study", "technology"]
+HARMONY_BATCH_KEY = ["species","study", "technology"]
 
 # Only relevant when HARMONY_BATCH_KEY is a list with 2+ entries. Controls
 # HOW multiple keys get combined:
@@ -199,7 +186,7 @@ USE_COMBINED_BATCH_KEY = False
 # If True, mean-center each species' embeddings (subtract that species'
 # overall mean X_uce vector from every one of its cells) before computing
 # distances, UMAP, and the separation score.
-CENTER_BY_SPECIES = False
+CENTER_BY_SPECIES = True
 
 # --- Study-controlled diagnostic ---
 # Which .obs["study"] value to use as the "study-controlled" subset for
