@@ -2,7 +2,7 @@
 #SBATCH --job-name=getUCEDistances
 #SBATCH --output=logs/uceDistances_%A_%a.out
 #SBATCH --error=logs/uceDistances_%A_%a.err
-#SBATCH --time=01:00:00
+#SBATCH --time=05:00:00
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
