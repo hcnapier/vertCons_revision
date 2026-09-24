@@ -32,6 +32,7 @@ for(currSpecies in speciesnames){
     filename <- paste(currSpecies, "rds", sep = ".")
     message(paste("reading", filename))
     speciesList[[currSpecies]] <- readRDS(filename)
+    speciesList
     message("done")
   }
 }
