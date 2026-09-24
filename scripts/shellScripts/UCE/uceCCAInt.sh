@@ -8,6 +8,8 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
 
+module load R/4.6.0 
+
 pythonDir="/hpc/group/vertgenlab/hailey/vertCons/code/vertCons_revision/scripts/pythonScripts"
 rDir="/hpc/group/vertgenlab/hailey/vertCons/code/vertCons_revision/scripts/RScripts/scTrx"
 
@@ -15,9 +17,9 @@ export LD_LIBRARY_PATH=/hpc/group/vertgenlab/hailey/software/miniconda3/envs/scr
 source  /hpc/group/vertgenlab/hailey/software/miniconda3/etc/profile.d/conda.sh
 conda activate scrna
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-python ${pythonDir}/export_uce_for_seurat.py
+#python ${pythonDir}/export_uce_for_seurat.py
 
-Rscript ${rDir}/integrate_cca.R
+Rscript ${rDir}/uce_cca_integration.R
 
 python ${pythonDir}/import_get_distance_cca.py
 
