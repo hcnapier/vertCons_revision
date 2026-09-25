@@ -14,8 +14,7 @@ require(ggpmisc)
 ## 0.2 Load data ----
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 enrichMat_loss <- readRDS("enrichMat_loss.rds")
-#enrichMat_combNodes <- readRDS("enrichMat_combNodes.rds")
-enrichMat_combNodes <- testOut
+enrichMat_combNodes <- readRDS("enrichMat_combNodes.rds")
 binomPvalMat_combNodes <- readRDS("binomPvalMat_combNodes.rds")
 binomPvalMat_loss <- readRDS("binomPvalMat_loss.rds")
 
@@ -26,6 +25,8 @@ lossEnr_long <- melt(enrichMat_loss, varnames = c("CellType", "nodeName"), value
 combNodeEnr_long <- melt(enrichMat_combNodes, varnames = c("CellType", "nodeName"), value.name = "gainEnrich")
 lossPval_long <- melt(binomPvalMat_loss, varnames = c("CellType", "nodeName"), value.name = "lossPval")
 combNodePval_long <- melt(binomPvalMat_combNodes, varnames = c("CellType", "nodeName"), value.name = "gainPval")
+combNodePval_long$nodeName <- str_remove_all(combNodePval_long$nodeName, "Nodes")
+combNodePval_long$nodeName <- str_remove_all(combNodePval_long$nodeName, "Node")
 lossPval_long$nodeName <- str_remove_all(lossPval_long$nodeName, "Node")
 lossEnr_long$nodeName <- str_remove_all(lossEnr_long$nodeName, "Node")
 combNode_MYA <- data.frame(nodeName = combNodeEnr_long$nodeName %>% unique(), MYA = MYA)
@@ -38,8 +39,6 @@ combNodePval_long <- full_join(combNodePval_long, combNode_MYA)
 ## 1.2 Merge matrices together ----
 loss <- inner_join(lossPval_long, lossEnr_long)
 gain <- inner_join(combNodeEnr_long, combNodePval_long)
-gain$nodeName <- str_remove_all(gain$nodeName, "Nodes")
-gain$nodeName <- str_remove_all(gain$nodeName, "Node")
 gainLoss <- inner_join(gain, loss)
 gainLoss$MillionYearsAgo <- as.factor(gainLoss$MYA)
 

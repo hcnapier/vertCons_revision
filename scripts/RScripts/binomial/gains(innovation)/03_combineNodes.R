@@ -104,3 +104,7 @@ nMat_combNodes$CellType <- NULL
 nMat_combNodes <- as.matrix(nMat_combNodes)
 colnames(nMat_combNodes) <- c("H_3", seq(4,17))
 enrichMat_combNodes <- (nMapMat_combNodes/nMat_combNodes)/nullPrMat_combNodes
+
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+saveRDS(enrichMat_combNodes, "enrichMat_combNodes.rds")
+saveRDS(binomPvalMat_combNodes, "binomPvalMat_combNodes.rds")
