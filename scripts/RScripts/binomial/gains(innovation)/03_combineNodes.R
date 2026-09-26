@@ -61,9 +61,9 @@ binomPvalMat_combNodes <- matrix(ncol = nNodes, nrow = nCellTypes)
 colnames(binomPvalMat_combNodes) <- c("NodesH_3", paste("Node", seq(4,17), sep = ""))
 rownames(binomPvalMat_combNodes) <- totalCellTypeRegions$CellType
 
-testOut <- matrix(ncol = nNodes, nrow = nCellTypes)
-colnames(testOut) <- c("NodesH_3", paste("Node", seq(4,17), sep = ""))
-rownames(testOut) <- totalCellTypeRegions$CellType
+enrichMat_combNodes <- matrix(ncol = nNodes, nrow = nCellTypes)
+colnames(enrichMat_combNodes) <- c("NodesH_3", paste("Node", seq(4,17), sep = ""))
+rownames(enrichMat_combNodes) <- totalCellTypeRegions$CellType
 
 ## 2.3 Compute binomial probabilities ----
 Nodes <- nMapLong_combNodes$Node %>% unique
@@ -83,8 +83,8 @@ for(currNode in Nodes){
     test <- binom.test(nSuccesses[i], nTrials, nullPrs[i], alternative = "two.sided")
     binomPrMat_combNodes[currCellType, currNodeName] <- test$estimate
     binomPvalMat_combNodes[currCellType, currNodeName] <- test$p.value
-    testOut[currCellType, currNodeName] <- (nSuccesses[i]/nTrials)/nullPrs[i]
-  }
+    enrichMat_combNodes[currCellType, currNodeName] <- (nSuccesses[i]/nTrials)/nullPrs[i]
+    }
 }
 binomSigMat_combNodes <- binomPvalMat_combNodes < 0.05
 sum(binomSigMat_combNodes)
@@ -92,18 +92,18 @@ sum(binomSigMat_combNodes)
 
 # 3.0 Compute enrichment ----
 # Enrichment = (successes/trials)/pr success
-nMat_combNodes <- nMapLong_combNodes %>%
-  select(CellType, nRegions, Node) %>%
-  pivot_wider(
-    names_from = Node,
-    values_from = nRegions
-  ) 
-nMat_combNodes <- data.frame(nMat_combNodes)
-rownames(nMat_combNodes) <- nMat_combNodes$CellType
-nMat_combNodes$CellType <- NULL
-nMat_combNodes <- as.matrix(nMat_combNodes)
-colnames(nMat_combNodes) <- c("H_3", seq(4,17))
-enrichMat_combNodes <- (nMapMat_combNodes/nMat_combNodes)/nullPrMat_combNodes
+# nMat_combNodes <- nMapLong_combNodes %>%
+#   select(CellType, nRegions, Node) %>%
+#   pivot_wider(
+#     names_from = Node,
+#     values_from = nRegions
+#   ) 
+# nMat_combNodes <- data.frame(nMat_combNodes)
+# rownames(nMat_combNodes) <- nMat_combNodes$CellType
+# nMat_combNodes$CellType <- NULL
+# nMat_combNodes <- as.matrix(nMat_combNodes)
+# colnames(nMat_combNodes) <- c("H_3", seq(4,17))
+#enrichMat_combNodes <- (nMapMat_combNodes/nMat_combNodes)/nullPrMat_combNodes
 
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 saveRDS(enrichMat_combNodes, "enrichMat_combNodes.rds")
