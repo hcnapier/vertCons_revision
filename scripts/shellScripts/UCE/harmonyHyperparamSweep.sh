@@ -17,9 +17,9 @@ pythonDir="/hpc/group/vertgenlab/hailey/vertCons/code/vertCons_revision/scripts/
 uceObj="/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances_combined.h5ad"
 outDir="/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/harmonySweep"
 
-python harmony_hyperparam_sweep.py ${uceObj} \
-    --study-key study --species-key species --celltype-key cell_type \
-    --tan-study Tan --covariate-sets study study,technology \
+python ${pythonDir}/harmony_hyperparam_sweep.py ${uceObj} \
+    --study-key study --species-key species --celltype-key cell_type_std \
+    --tan-study Tan --covariate-sets study technology \
     --thetas 1 2 4 6 8 --lambdas 1 0.5 0.1 --subsample 60000 --apply-best \
     --outdir ${outDir}
 
