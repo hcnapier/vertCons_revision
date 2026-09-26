@@ -17,7 +17,11 @@ Workflow:
 
 python uce_celltype_distance_comparison.py
 """
-
+import gzip
+import os
+import rec
+import argparse
+import json
 import numpy as np
 import pandas as pd
 import scanpy as sc
@@ -140,6 +144,29 @@ CELL_TYPE_ONTOLOGY_ORDER = [
     "neu"
 ]
 
+# Broad class for each cell_type_std label (lowercased, as in CELL_TYPE_ONTOLOGY_ORDER).
+# Labels not listed here become "unassigned" and are skipped (with a warning).
+BROAD_CELL_TYPES = {
+    # trophoblast
+    "ctb": "trophoblast", "evt": "trophoblast", "invasive": "trophoblast",
+    "stb": "trophoblast", "s-tgc": "trophoblast", "spt": "trophoblast",
+    "gc": "trophoblast", "unc": "trophoblast", "bnc": "trophoblast",
+    # maternal / fetal non-trophoblast
+    "epi": "epithelial",
+    "stro": "stromal", "mes": "stromal",
+    "endo": "endothelial",
+    # immune
+    "leu": "immune", "bcell": "immune", "tcell": "immune", "nkcells": "immune",
+    "mono": "immune", "mac": "mac", "dc": "immune", "neu": "immune",
+}
+
+# Pairwise cell-cell distance export (one file per broad cell type).
+WRITE_PAIRWISE_DISTANCES = True
+PAIRWISE_MAX_CELLS_PER_BROAD_TYPE = 5000  # None = all cells (rows grow as n^2!)
+PAIRWISE_COMPRESS = True                  # write .csv.gz
+PAIRWISE_CHUNK_ROWS = 500                 # rows of the distance matrix held in memory at once
+PAIRWISE_SEED = 0
+
 # Distance metric for comparisons: "euclidean" or "cosine"
 METRIC = "cosine"
 
@@ -158,7 +185,14 @@ USE_HARMONY = True
 # ["species", "study", "technology"] — Harmony supports multiple batch
 # variables simultaneously. Available columns after load_and_merge are:
 # "dataset", "species", "study", "technology".
-HARMONY_BATCH_KEY = ["species","study", "technology"]
+HARMONY_BATCH_KEY = ["study", "technology"]
+
+# Optional: path to best_params.json from harmony_hyperparam_sweep.py. Set it
+# here or pass --harmony-params on the command line (the command line wins).
+# When set, Harmony runs with the tuned covariates / theta / lambda / sigma /
+# nclust / iterations / PCA setting, overriding HARMONY_BATCH_KEY and
+# USE_COMBINED_BATCH_KEY, and USE_HARMONY is treated as True.
+HARMONY_PARAMS_JSON = None
 
 # Only relevant when HARMONY_BATCH_KEY is a list with 2+ entries. Controls
 # HOW multiple keys get combined:
@@ -255,8 +289,41 @@ def center_by_species(combined):
           "embedding from its cells (stored in .obsm['X_uce_centered']).")
     return combined
   
+def load_harmony_params(path):
+    """Read best_params.json from harmony_hyperparam_sweep.py and return
+    keyword arguments for run_harmony_integration()."""
+    with open(path) as f:
+        p = json.load(f)
+    missing = [k for k in ["covariates", "theta", "lamb", "sigma"] if k not in p]
+    if missing:
+        raise ValueError(f"{path} is missing {missing}; is it a best_params.json from the sweep?")
+
+    kwargs = dict(
+        batch_key=p["covariates"],
+        combine_keys=False,  # the sweep always passes covariates separately
+        theta=float(p["theta"]),
+        lamb=float(p["lamb"]),
+        sigma=float(p["sigma"]),
+        nclust=None if p.get("nclust") is None else int(p["nclust"]),
+        max_iter_harmony=int(p.get("max_iter_harmony", 10)),
+        n_pcs=int(p.get("n_pcs") or 0),
+    )
+    print(f"Loaded tuned Harmony parameters from {path}: "
+          + ", ".join(f"{k}={v}" for k, v in kwargs.items()))
+
+    if p.get("metric") and p["metric"] != METRIC:
+        print(f"WARNING: parameters were tuned with metric='{p['metric']}' but METRIC='{METRIC}'.")
+    if not p.get("passed_tan_check", True):
+        print("WARNING: this setting did NOT pass the Tan check in the sweep.")
+    if not p.get("beats_raw_on_triplets", True):
+        print("WARNING: in the sweep this setting did not improve batch-matched triplet accuracy "
+              "over raw UCE; raw UCE may be the better space for distances.")
+    return kwargs
+  
 def run_harmony_integration(combined, batch_key="species", use_rep="X_uce",
-                             combine_keys=False):
+                             combine_keys=False, theta=None, lamb=None,
+                             sigma=0.1, nclust=None, max_iter_harmony=10,
+                             n_pcs=0, random_state=0):
     """
     Run Harmony on the UCE embeddings directly (not on a PCA reduction —
     X_uce is already a compact learned representation, so Harmony is run
@@ -313,7 +380,23 @@ def run_harmony_integration(combined, batch_key="species", use_rep="X_uce",
             "Install it with: pip install harmonypy"
         )
  
-    ho = harmonypy.run_harmony(combined.obsm[use_rep], combined.obs, harmony_keys)
+    X = np.asarray(combined.obsm[use_rep], dtype=np.float64)
+    if n_pcs:
+        from sklearn.decomposition import PCA
+        pca = PCA(n_components=n_pcs, random_state=random_state).fit(X)
+        X = pca.transform(X)
+        print(f"Running Harmony on the top {n_pcs} PCs of {use_rep} "
+              f"({100 * pca.explained_variance_ratio_.sum():.1f}% variance), as in the sweep.")
+    n_keys = len(harmony_keys)
+    ho = harmonypy.run_harmony(
+        X, combined.obs, harmony_keys,
+        theta=None if theta is None else [theta] * n_keys,
+        lamb=None if lamb is None else [lamb] * n_keys,
+        sigma=sigma,
+        nclust=nclust,
+        max_iter_harmony=max_iter_harmony,
+        random_state=random_state,
+    )
     Z = np.asarray(ho.Z_corr)
     n_cells = combined.n_obs
  
@@ -654,22 +737,125 @@ def plot_umap(combined, out_path, use_rep="X_uce"):
     print(f"Saved UMAP to {out_path}")
  
  
+def parse_args():
+    p = argparse.ArgumentParser(
+        description="Compare UCE embedding distances across species and cell types.")
+    p.add_argument("--harmony-params", default=HARMONY_PARAMS_JSON,
+                   help="best_params.json from harmony_hyperparam_sweep.py")
+    return p.parse_args()
+
+def add_broad_cell_type(combined, broad_map):
+    """Map cell_type_std to a broad class in .obs['broad_cell_type'].
+    Fine types missing from broad_map become 'unassigned' (reported, then skipped)."""
+    combined.obs["broad_cell_type"] = (combined.obs["cell_type_std"].astype(str)
+                                       .map(broad_map).fillna("unassigned"))
+    unmapped = combined.obs.loc[combined.obs["broad_cell_type"] == "unassigned",
+                                "cell_type_std"].value_counts()
+    if len(unmapped):
+        print(f"WARNING: {len(unmapped)} cell type(s) have no entry in BROAD_CELL_TYPES and "
+              f"will be skipped in the pairwise output:\n{unmapped.to_string()}")
+    print("Cells per broad cell type:\n"
+          + combined.obs["broad_cell_type"].value_counts().to_string())
+    return combined
+
+
+def _sample_evenly_by_species(obs_sub, max_cells, rng):
+    """Up to max_cells positions from obs_sub, split as evenly as possible
+    across species (a species with fewer cells gives its share to the others)."""
+    if max_cells is None or len(obs_sub) <= max_cells:
+        return np.arange(len(obs_sub))
+    by_sp = {sp: np.flatnonzero((obs_sub["species"] == sp).to_numpy())
+             for sp in obs_sub["species"].unique()}
+    quota, remaining = {}, max_cells
+    for sp in sorted(by_sp, key=lambda s: len(by_sp[s])):  # smallest species first
+        share = remaining // (len(by_sp) - len(quota))
+        quota[sp] = min(len(by_sp[sp]), share)
+        remaining -= quota[sp]
+    picked = [rng.choice(idx, quota[sp], replace=False) for sp, idx in by_sp.items()]
+    return np.sort(np.concatenate(picked))
+
+
+def write_pairwise_distances_by_broad_type(combined, use_rep, out_dir, metric="cosine",
+                                           max_cells=5000, compress=True,
+                                           chunk_rows=500, seed=0):
+    """For each broad cell type, write every unique cell pair (i < j) with columns
+    cellID1, cellID2, species1, species2, distance. Distances are computed in
+    .obsm[use_rep]. Rows = n*(n-1)/2, so cells are capped at max_cells per broad
+    type (sampled evenly across species); max_cells=None keeps all cells."""
+    os.makedirs(out_dir, exist_ok=True)
+    rng = np.random.default_rng(seed)
+    X_all = np.asarray(combined.obsm[use_rep])
+    obs = combined.obs
+    summary = []
+    for broad in sorted(obs["broad_cell_type"].unique()):
+        if broad == "unassigned":
+            continue
+        pos = np.flatnonzero((obs["broad_cell_type"] == broad).to_numpy())
+        keep = _sample_evenly_by_species(obs.iloc[pos], max_cells, rng)
+        pos = pos[keep]
+        n = len(pos)
+        n_pairs = n * (n - 1) // 2
+        if n < 2:
+            print(f"Skipping broad type '{broad}': fewer than 2 cells.")
+            continue
+        ids = obs.index.to_numpy()[pos]
+        species = obs["species"].astype(str).to_numpy()[pos]
+        X = X_all[pos]
+        safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", broad)
+        path = os.path.join(out_dir, f"pairwise_{safe}.csv" + (".gz" if compress else ""))
+        print(f"'{broad}': {n} cells -> {n_pairs:,} pairs -> {path}")
+        opener = gzip.open(path, "wt") if compress else open(path, "w")
+        with opener as fh:
+            fh.write("cellID1,cellID2,species1,species2,distance\n")
+            for start in range(0, n - 1, chunk_rows):
+                stop = min(start + chunk_rows, n - 1)
+                D = pairwise_distances(X[start:stop], X[start:], metric=metric)
+                # keep only j > i within the global index (upper triangle)
+                r, c = np.nonzero(np.arange(start, n)[None, :] > np.arange(start, stop)[:, None])
+                i, j = r + start, c + start
+                pd.DataFrame({"cellID1": ids[i], "cellID2": ids[j],
+                              "species1": species[i], "species2": species[j],
+                              "distance": D[r, c]}).to_csv(
+                    fh, header=False, index=False, float_format="%.6g")
+        summary.append({"broad_cell_type": broad, "n_cells": n, "n_pairs": n_pairs,
+                        "cells_per_species": pd.Series(species).value_counts().to_dict(),
+                        "file": path})
+    summary = pd.DataFrame(summary)
+    summary.to_csv(os.path.join(out_dir, "pairwise_summary.csv"), index=False)
+    print(f"Pairwise distance files written to {out_dir} (metric={metric}, space={use_rep}).")
+    return summary
+
 def main():
+    args = parse_args()
     combined = load_and_merge(DATASET_PATHS, CELL_TYPE_COLS, SPECIES, STUDY, TECHNOLOGY)
- 
+
     use_rep = "X_uce"
-    if USE_HARMONY:
+    use_harmony = USE_HARMONY
+    harmony_kwargs = dict(batch_key=HARMONY_BATCH_KEY, combine_keys=USE_COMBINED_BATCH_KEY)
+    if args.harmony_params:
+        harmony_kwargs = load_harmony_params(args.harmony_params)
+        use_harmony = True
+        with open(f"{OUT_PREFIX}_harmony_params_used.json", "w") as f:
+            json.dump({"source": args.harmony_params, **harmony_kwargs}, f, indent=2)
+
+    if use_harmony:
         if CENTER_BY_SPECIES:
-            print("Both USE_HARMONY and CENTER_BY_SPECIES are True — "
+            print("Both Harmony and CENTER_BY_SPECIES are on — "
                   "running Harmony only and skipping centering, since "
                   "combining both is usually redundant.")
-        combined = run_harmony_integration(combined, batch_key=HARMONY_BATCH_KEY,
-                                            use_rep=use_rep,
-                                            combine_keys=USE_COMBINED_BATCH_KEY)
+        combined = run_harmony_integration(combined, use_rep=use_rep, **harmony_kwargs)
         use_rep = "X_uce_harmony"
     elif CENTER_BY_SPECIES:
         combined = center_by_species(combined)
         use_rep = "X_uce_centered"
+        
+    combined = add_broad_cell_type(combined, BROAD_CELL_TYPES)
+    if WRITE_PAIRWISE_DISTANCES:
+        write_pairwise_distances_by_broad_type(
+            combined, use_rep=use_rep, out_dir=f"{OUT_PREFIX}_pairwise",
+            metric=METRIC, max_cells=PAIRWISE_MAX_CELLS_PER_BROAD_TYPE,
+            compress=PAIRWISE_COMPRESS, chunk_rows=PAIRWISE_CHUNK_ROWS,
+            seed=PAIRWISE_SEED)
  
     dist_df = centroid_distance_matrix(combined, metric=METRIC, use_rep=use_rep,
                                         species_order=SPECIES_PHYLO_ORDER)
@@ -684,8 +870,8 @@ def main():
     print(f"Saved study-controlled diagnostic to "
           f"{OUT_PREFIX}_study_controlled_diagnostic.csv")
  
-    if USE_HARMONY:
-        title_suffix = " (Harmony-integrated)"
+    if use_harmony:
+        title_suffix = " (Harmony, tuned)" if args.harmony_params else " (Harmony-integrated)"
     elif CENTER_BY_SPECIES:
         title_suffix = " (species-centered)"
     else:
