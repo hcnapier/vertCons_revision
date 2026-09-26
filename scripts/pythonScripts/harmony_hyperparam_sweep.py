@@ -133,7 +133,13 @@ def parse_args():
     p.add_argument("--lambdas", nargs="+", type=float, default=[1.0, 0.5, 0.1])
     p.add_argument("--sigmas", nargs="+", type=float, default=[0.1])
     p.add_argument("--nclust", type=int, default=None, help="Harmony clusters (default: harmonypy's)")
-    p.add_argument("--max-iter", type=int, default=20)
+    p.add_argument("--max-iter", type=int, default=1000,
+                   help="Cap on Harmony iterations. Harmony stops as soon as it converges, so this "
+                        "is only a safety limit; runs that hit it are flagged and not recommended.")
+    p.add_argument("--epsilon-harmony", type=float, default=1e-4,
+                   help="Convergence threshold: stop when the relative change in Harmony's objective "
+                        "falls below this. Pinned here so results don't depend on the harmonypy "
+                        "version's default (1e-2 in harmonypy 2.x).")
 
     # Data size / space
     p.add_argument("--subsample", type=int, default=60000, help="Max cells for the sweep (0 = all)")
@@ -147,8 +153,8 @@ def parse_args():
     p.add_argument("--min-cells", type=int, default=20, help="Min cells for a species x cell-type centroid")
     p.add_argument("--metric", default="cosine", choices=["euclidean", "cosine"],
                    help="Centroid distance metric (your core script uses cosine)")
-    p.add_argument("--min-compression", type=float, default=0.75)
-    p.add_argument("--min-spearman", type=float, default=0.75)
+    p.add_argument("--min-compression", type=float, default=0.8)
+    p.add_argument("--min-spearman", type=float, default=0.8)
     p.add_argument("--w-triplet", type=float, default=0.6)
     p.add_argument("--w-phylo", type=float, default=0.2)
     p.add_argument("--w-celltype", type=float, default=0.2)
@@ -254,7 +260,19 @@ def build_triplets(species_study, div):
 # -----------------------------------------------------------------------------
 # Harmony
 # -----------------------------------------------------------------------------
-def run_harmony(X, meta, covars, theta, lamb, sigma, nclust, max_iter, seed):
+def harmony_convergence(ho, max_iter, epsilon):
+    """Iterations run and whether Harmony converged (vs hitting max_iter).
+    objective_harmony holds the initial objective plus one value per iteration."""
+    obj = [float(v) for v in ho.objective_harmony]
+    rounds = list(getattr(ho, "kmeans_rounds", []))
+    n_iter = len(rounds) if rounds else max(len(obj) - 1, 0)
+    rel = (obj[-2] - obj[-1]) / abs(obj[-2]) if len(obj) >= 2 and obj[-2] != 0 else np.nan
+    converged = n_iter < max_iter or (not np.isnan(rel) and rel < epsilon)
+    return dict(harmony_n_iter=n_iter, harmony_converged=bool(converged), harmony_last_rel_change=rel)
+
+
+def run_harmony(X, meta, covars, theta, lamb, sigma, nclust, max_iter, seed, epsilon=1e-4):
+    """Returns (corrected embedding, convergence info)."""
     ho = harmonypy.run_harmony(
         X, meta, covars,
         theta=[theta] * len(covars),
@@ -262,14 +280,16 @@ def run_harmony(X, meta, covars, theta, lamb, sigma, nclust, max_iter, seed):
         sigma=sigma,
         nclust=nclust,
         max_iter_harmony=max_iter,
+        epsilon_harmony=epsilon,
         verbose=False,
         random_state=seed,
     )
+    info = harmony_convergence(ho, max_iter, epsilon)
     Z = np.asarray(ho.Z_corr)
     if Z.shape[0] == X.shape[0]:
-        return Z
+        return Z, info
     if Z.shape[1] == X.shape[0]:
-        return Z.T
+        return Z.T, info
     raise ValueError(f"harmonypy output shape {Z.shape} does not match {X.shape[0]} cells")
 
 
@@ -554,24 +574,39 @@ def main():
     for n, (cs, theta, lamb, sigma) in enumerate(grid, 1):
         t0 = time.time()
         try:
-            Z = run_harmony(X, obs, cs, theta, lamb, sigma, args.nclust, args.max_iter, args.seed)
+            Z, conv = run_harmony(X, obs, cs, theta, lamb, sigma, args.nclust, args.max_iter,
+                                  args.seed, args.epsilon_harmony)
+            if not conv["harmony_converged"]:
+                log.warning("[%d/%d] %s theta=%g lambda=%g sigma=%g did NOT converge within %d "
+                            "iterations (last relative change %.2e); raise --max-iter.", n, len(grid),
+                            cs, theta, lamb, sigma, args.max_iter, conv["harmony_last_rel_change"])
             m, _, trip = evaluate(Z, obs, args, ctx, tan_rel_raw)
         except Exception as e:  # keep the sweep going
             log.error("[%d/%d] %s theta=%g lambda=%g sigma=%g failed: %s", n, len(grid), cs, theta, lamb, sigma, e)
             continue
         rows.append(dict(method="harmony", covariates=",".join(cs), theta=theta, lamb=lamb,
-                         sigma=sigma, runtime_s=time.time() - t0, **m))
+                         sigma=sigma, runtime_s=time.time() - t0, **conv, **m))
         trip_details[len(rows) - 1] = trip
         log.info("[%d/%d] %s theta=%g lambda=%g sigma=%g | triplets=%.3f phylo=%.3f cLISI=%.3f "
-                 "sil=%.3f | Tan comp=%.2f rho=%.2f (%.0fs)", n, len(grid), ",".join(cs), theta, lamb,
-                 sigma, m["triplet_accuracy"], m["phylo_spearman"], m["clisi_norm"],
-                 m["celltype_silhouette"], m["tan_compression"], m["tan_spearman"], time.time() - t0)
+                 "sil=%.3f | Tan comp=%.2f rho=%.2f | %d iter%s (%.0fs)", n, len(grid), ",".join(cs), theta,
+                 lamb, sigma, m["triplet_accuracy"], m["phylo_spearman"], m["clisi_norm"],
+                 m["celltype_silhouette"], m["tan_compression"], m["tan_spearman"],
+                 conv["harmony_n_iter"], "" if conv["harmony_converged"] else " NOT CONVERGED",
+                 time.time() - t0)
         pd.DataFrame(rows).to_csv(results_path, index=False)  # incremental
 
     df = add_scores(pd.DataFrame(rows), args)
     h = df[(df.method == "harmony") & df.overall.notna()]
     if h.empty:
         raise RuntimeError(f"No Harmony setting produced a complete score; see {results_path}.")
+    not_conv = h[~h.harmony_converged.astype(bool)]
+    if len(not_conv):
+        log.warning("%d setting(s) hit --max-iter without converging and are excluded from the "
+                    "recommendation (see harmony_converged in %s).", len(not_conv), results_path)
+        if len(not_conv) < len(h):
+            h = h[h.harmony_converged.astype(bool)]
+        else:
+            log.warning("No setting converged; considering all of them anyway. Raise --max-iter.")
     ok = h[h.tan_pass]
     pool = ok if len(ok) else h
     if not len(ok):
@@ -590,7 +625,9 @@ def main():
             "celltype_silhouette", "ilisi_species", "tan_compression", "tan_spearman"]
     best_params = dict(
         covariates=best.covariates.split(","), theta=best.theta, lamb=best.lamb, sigma=best.sigma,
-        nclust=args.nclust, max_iter_harmony=args.max_iter, n_pcs=args.n_pcs, metric=args.metric,
+        nclust=args.nclust, max_iter_harmony=args.max_iter, epsilon_harmony=args.epsilon_harmony,
+        n_pcs=args.n_pcs, metric=args.metric,
+        harmony_n_iter_on_subsample=int(best.harmony_n_iter),
         passed_tan_check=bool(best.tan_pass),
         beats_raw_on_triplets=bool(best.triplet_accuracy > raw.triplet_accuracy),
         phylo_study_baseline=float(raw.phylo_study_baseline),
@@ -603,7 +640,7 @@ def main():
     plot_tradeoff(df, args, outdir / "sweep_tradeoff.png")
     plot_heatmaps(df, args, outdir / "sweep_overall_heatmap.png")
 
-    cols = ["covariates", "theta", "lamb", "sigma", "overall", "triplet_accuracy", "triplet_margin",
+    cols = ["covariates", "theta", "lamb", "sigma", "harmony_n_iter", "overall", "triplet_accuracy", "triplet_margin",
             "phylo_spearman", "celltype_score", "tan_compression", "tan_spearman", "tan_pass"]
     print("\nTop 10 settings:")
     print(df.sort_values("overall", ascending=False)[cols].head(10).to_string(index=False, float_format="%.3f"))
@@ -624,8 +661,13 @@ def main():
             log.warning("--apply-best: saving the recommended setting even though it does not beat raw UCE.")
         log.info("Applying recommended setting to all %d cells", len(X_full))
         Xa = pca.transform(X_full) if pca is not None else X_full
-        Z = run_harmony(Xa, obs_full, best_params["covariates"], best.theta, best.lamb, best.sigma,
-                        args.nclust, args.max_iter, args.seed)
+        Z, conv = run_harmony(Xa, obs_full, best_params["covariates"], best.theta, best.lamb,
+                              best.sigma, args.nclust, args.max_iter, args.seed, args.epsilon_harmony)
+        log.info("Full-data Harmony: %d iterations, converged=%s", conv["harmony_n_iter"],
+                 conv["harmony_converged"])
+        if not conv["harmony_converged"]:
+            log.warning("Full-data Harmony did NOT converge within %d iterations; raise --max-iter.",
+                        args.max_iter)
         np.save(outdir / "X_uce_harmony_best.npy", Z.astype(np.float32))
         np.savetxt(outdir / "obs_names.txt", names_full, fmt="%s")
         log.info("Saved %s  (load with adata.obsm['X_uce_harmony_best'] = np.load(...))",

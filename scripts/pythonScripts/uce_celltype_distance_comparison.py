@@ -192,7 +192,12 @@ HARMONY_BATCH_KEY = ["study", "technology"]
 # When set, Harmony runs with the tuned covariates / theta / lambda / sigma /
 # nclust / iterations / PCA setting, overriding HARMONY_BATCH_KEY and
 # USE_COMBINED_BATCH_KEY, and USE_HARMONY is treated as True.
-HARMONY_PARAMS_JSON = None
+HARMONY_PARAMS_JSON = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/harmonySweep/best_params.json"
+
+# Harmony runs until its objective stops changing (relative change < HARMONY_EPSILON).
+# HARMONY_MAX_ITER is only a safety cap; the log says if it was hit before convergence.
+HARMONY_MAX_ITER = 1000
+HARMONY_EPSILON = 1e-4
 
 # Only relevant when HARMONY_BATCH_KEY is a list with 2+ entries. Controls
 # HOW multiple keys get combined:
@@ -214,7 +219,7 @@ USE_COMBINED_BATCH_KEY = False
 # If True, mean-center each species' embeddings (subtract that species'
 # overall mean X_uce vector from every one of its cells) before computing
 # distances, UMAP, and the separation score.
-CENTER_BY_SPECIES = True
+CENTER_BY_SPECIES = False
 
 # --- Study-controlled diagnostic ---
 # Which .obs["study"] value to use as the "study-controlled" subset for
@@ -289,6 +294,17 @@ def center_by_species(combined):
           "embedding from its cells (stored in .obsm['X_uce_centered']).")
     return combined
   
+def harmony_convergence(ho, max_iter, epsilon):
+    """Iterations run and whether Harmony converged (vs hitting max_iter).
+    objective_harmony holds the initial objective plus one value per iteration."""
+    obj = [float(v) for v in ho.objective_harmony]
+    rounds = list(getattr(ho, "kmeans_rounds", []))
+    n_iter = len(rounds) if rounds else max(len(obj) - 1, 0)
+    rel = (obj[-2] - obj[-1]) / abs(obj[-2]) if len(obj) >= 2 and obj[-2] != 0 else float("nan")
+    converged = n_iter < max_iter or (not np.isnan(rel) and rel < epsilon)
+    return {"n_iter": n_iter, "converged": bool(converged), "last_rel_change": rel,
+            "max_iter": max_iter, "epsilon": epsilon}
+
 def load_harmony_params(path):
     """Read best_params.json from harmony_hyperparam_sweep.py and return
     keyword arguments for run_harmony_integration()."""
@@ -298,6 +314,7 @@ def load_harmony_params(path):
     if missing:
         raise ValueError(f"{path} is missing {missing}; is it a best_params.json from the sweep?")
 
+        json_max_iter = int(p.get("max_iter_harmony", HARMONY_MAX_ITER))
     kwargs = dict(
         batch_key=p["covariates"],
         combine_keys=False,  # the sweep always passes covariates separately
@@ -305,12 +322,18 @@ def load_harmony_params(path):
         lamb=float(p["lamb"]),
         sigma=float(p["sigma"]),
         nclust=None if p.get("nclust") is None else int(p["nclust"]),
-        max_iter_harmony=int(p.get("max_iter_harmony", 10)),
+        # max_iter is only a safety cap: never lower than HARMONY_MAX_ITER, so an old
+        # JSON (e.g. max_iter_harmony=20) can't cut Harmony off before it converges.
+        max_iter_harmony=max(json_max_iter, HARMONY_MAX_ITER),
+        epsilon_harmony=float(p.get("epsilon_harmony", HARMONY_EPSILON)),
         n_pcs=int(p.get("n_pcs") or 0),
     )
     print(f"Loaded tuned Harmony parameters from {path}: "
           + ", ".join(f"{k}={v}" for k, v in kwargs.items()))
-
+          
+    if "epsilon_harmony" not in p:
+    print(f"NOTE: {path} has no epsilon_harmony (older sweep); using HARMONY_EPSILON="
+          f"{HARMONY_EPSILON}. Rerun the sweep so tuning and this run use the same threshold.")
     if p.get("metric") and p["metric"] != METRIC:
         print(f"WARNING: parameters were tuned with metric='{p['metric']}' but METRIC='{METRIC}'.")
     if not p.get("passed_tan_check", True):
@@ -322,7 +345,7 @@ def load_harmony_params(path):
   
 def run_harmony_integration(combined, batch_key="species", use_rep="X_uce",
                              combine_keys=False, theta=None, lamb=None,
-                             sigma=0.1, nclust=None, max_iter_harmony=10,
+                             sigma=0.1, nclust=None, max_iter_harmony=HARMONY_MAX_ITER, epsilon_harmony=HARMONY_EPSILON,
                              n_pcs=0, random_state=0):
     """
     Run Harmony on the UCE embeddings directly (not on a PCA reduction —
@@ -395,8 +418,18 @@ def run_harmony_integration(combined, batch_key="species", use_rep="X_uce",
         sigma=sigma,
         nclust=nclust,
         max_iter_harmony=max_iter_harmony,
+        epsilon_harmony=epsilon_harmony,
         random_state=random_state,
     )
+    conv = harmony_convergence(ho, max_iter_harmony, epsilon_harmony)
+    combined.uns["harmony_convergence"] = conv
+    if conv["converged"]:
+        print(f"Harmony converged after {conv['n_iter']} iterations "
+              f"(relative objective change < {epsilon_harmony:g}).")
+    else:
+        print(f"WARNING: Harmony did NOT converge: stopped at the {max_iter_harmony}-iteration cap "
+              f"(last relative objective change {conv['last_rel_change']:.2e}, threshold "
+              f"{epsilon_harmony:g}). Raise HARMONY_MAX_ITER.")
     Z = np.asarray(ho.Z_corr)
     n_cells = combined.n_obs
  
