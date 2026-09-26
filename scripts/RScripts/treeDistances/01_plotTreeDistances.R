@@ -90,4 +90,37 @@ ggplot(cov, aes(y = hg38.Coverage, x = Distance.from.hg38..substitution.rate., c
   theme_minimal() +
   labs(x = "Distance from hg38 (Substitution Rate)", 
        y = "hg38 Coverage")
-  
+
+
+# 3.0 Branch coverage vs gain/loss correlation ----
+nodeAvCov <- cov %>% 
+  group_by(Node) %>% 
+  summarize(avg_value = mean(hg38.Coverage, na.rm = TRUE))
+chimp_GibbonCov <- cov %>%
+  filter(Node %in% c("0", "1", "2", "3"))
+chimp_gibbonAvCov <- data.frame(Node = "0_3", avg_value = mean(chimp_GibbonCov$hg38.Coverage))
+nodeAvCov <- rbind(chimp_gibbonAvCov, nodeAvCov)
+nodeAvCov <- nodeAvCov %>%
+  filter(!Node %in% c("0", "1", "2", "3"))
+MYA <- cov$MYA %>% unique
+MYA <- MYA[4:18]  
+nodeAvCov$MYA <- MYA
+
+## 3.1 Compute gain/loss correlation for each branch 
+branchGainLoss <- data.frame(MYA = unique(gainLoss$MYA), corr = rep(NA, length(unique(gainLoss$MYA))))
+for(currBranch in branchGainLoss$MYA){
+  tmp <- gainLoss %>%
+    filter(MYA == currBranch)
+  model <- lm(gainEnrich ~ lossEnrich, data = tmp)
+  modelSummary <- summary(model)
+  branchGainLoss$corr[which(branchGainLoss$MYA == currBranch)] <- modelSummary$adj.r.squared
+}
+branchCorrCov <- left_join(branchGainLoss, nodeAvCov)
+branchCorrCov$MYA <- as.factor(branchCorrCov$MYA)
+branchCorrCov$hg38Cov <- branchCorrCov$avg_value
+branchCorrCov$avg_value <- NULL
+
+ggplot(branchCorrCov, aes(x = hg38Cov, y = corr, color = MYA)) +
+  geom_point(alpha = 1, stroke = 0, size = 4) + 
+  scale_color_manual(values = rev(zissou_15[2:14])) +
+  theme_minimal() 
