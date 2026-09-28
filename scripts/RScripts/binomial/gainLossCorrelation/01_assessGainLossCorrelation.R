@@ -91,7 +91,7 @@ allGainLoss_MYA <- ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = 
        color = "MYA")
 
 setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/figures/gainLossCorrPlots")
-ggsave("allGainLossCorr.png", allGainLoss_MYA, width = 6.51, height = 4, bg = "transparent")
+ggsave("allGainLossCorr.png", allGainLoss_MYA, width = 6, height = 4, bg = "transparent")
 
 
 ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
@@ -227,7 +227,9 @@ for(i in 1:nrow(gainLoss)){
 }
 
 placentaPts <- filter(gainLoss, placenta == TRUE)
-legendKey <- distinct(placentaPts, pointColor, legendLabel)
+legendKey <- placentaPts %>%
+  distinct(pointColor, legendLabel) %>%
+  arrange(legendLabel)
 
 placentaModel <- lm(gainEnrich ~ lossEnrich, data = placentaPts)
 adjR2 <- summary(placentaModel)$adj.r.squared
