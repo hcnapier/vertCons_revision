@@ -194,6 +194,12 @@ HARMONY_BATCH_KEY = ["study", "technology"]
 # USE_COMBINED_BATCH_KEY, and USE_HARMONY is treated as True.
 HARMONY_PARAMS_JSON = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/harmonySweep/best_params.json"
 
+# Optional: X_uce_harmony_best.npy from harmony_hyperparam_sweep.py --apply-best.
+# When set (here or with --harmony-embedding), that embedding is used as
+# .obsm["X_uce_harmony"] and Harmony is NOT re-run. obs_names.txt from the same
+# folder is used to match cells.
+HARMONY_EMBEDDING_NPY = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/harmonySweep/X_uce_harmony_best.npy"
+
 # Harmony runs until its objective stops changing (relative change < HARMONY_EPSILON).
 # HARMONY_MAX_ITER is only a safety cap; the log says if it was hit before convergence.
 HARMONY_MAX_ITER = 1000
@@ -344,7 +350,66 @@ def load_harmony_params(path):
         print("WARNING: in the sweep this setting did not improve batch-matched triplet accuracy "
               "over raw UCE; raw UCE may be the better space for distances.")
     return kwargs
-  
+
+def load_precomputed_harmony(combined, npy_path, obs_names_path=None):
+    """Load the Harmony embedding saved by harmony_hyperparam_sweep.py --apply-best
+    (X_uce_harmony_best.npy + obs_names.txt) into .obsm['X_uce_harmony'], matching
+    rows to combined.obs_names by cell ID. Raises if any cell is missing."""
+    folder = os.path.dirname(os.path.abspath(npy_path))
+    if obs_names_path is None:
+        obs_names_path = os.path.join(folder, "obs_names.txt")
+    if not os.path.exists(obs_names_path):
+        raise FileNotFoundError(f"Cell-ID file not found: {obs_names_path}. Pass it with "
+                                f"--harmony-obs-names.")
+
+    Z = np.load(npy_path)
+    ids = np.loadtxt(obs_names_path, dtype=str, delimiter="\t", ndmin=1)
+    if Z.shape[0] != len(ids):
+        raise ValueError(f"{npy_path} has {Z.shape[0]} rows but {obs_names_path} lists "
+                         f"{len(ids)} cell IDs; they must come from the same sweep run.")
+    if len(set(ids)) != len(ids):
+        raise ValueError(f"{obs_names_path} contains duplicate cell IDs.")
+
+    pos = {c: i for i, c in enumerate(ids)}
+    missing = [c for c in combined.obs_names if c not in pos]
+    if missing:
+        raise ValueError(
+            f"{len(missing)} of {combined.n_obs} cells are not in the precomputed embedding "
+            f"(e.g. {missing[:3]}). The sweep must have been run on the combined AnnData built "
+            f"from the same DATASET_PATHS, in the same order, so the cell IDs match.")
+    extra = len(ids) - combined.n_obs
+    if extra:
+        print(f"NOTE: the precomputed embedding has {extra} cells that are not in this run; "
+              f"they are ignored.")
+
+    combined.obsm["X_uce_harmony"] = Z[[pos[c] for c in combined.obs_names]]
+    print(f"Loaded precomputed Harmony embedding from {npy_path}: "
+          f"{combined.obsm['X_uce_harmony'].shape[1]} dims for {combined.n_obs} cells "
+          f"(Harmony was NOT re-run).")
+
+    params_path = os.path.join(folder, "best_params.json")
+    if os.path.exists(params_path):
+        with open(params_path) as f:
+            p = json.load(f)
+        print(f"Settings from {params_path}: covariates={p.get('covariates')}, "
+              f"theta={p.get('theta')}, lambda={p.get('lamb')}, sigma={p.get('sigma')}, "
+              f"n_pcs={p.get('n_pcs')}")
+        if p.get("n_pcs"):
+            print(f"NOTE: the sweep ran Harmony on {p['n_pcs']} PCs, so all distances in this "
+                  f"run are measured in that {p['n_pcs']}-d space, not the 1280-d UCE space.")
+        if p.get("metric") and p["metric"] != METRIC:
+            print(f"WARNING: the sweep used metric='{p['metric']}' but METRIC='{METRIC}'.")
+        if not p.get("beats_raw_on_triplets", True):
+            print("WARNING: in the sweep this setting did not improve batch-matched triplet "
+                  "accuracy over raw UCE; raw UCE may be the better space for distances.")
+        combined.uns["harmony_source"] = {"embedding": os.path.abspath(npy_path),
+                                          "params": os.path.abspath(params_path)}
+    else:
+        print(f"NOTE: no best_params.json next to {npy_path}; can't report which settings "
+              f"produced it.")
+        combined.uns["harmony_source"] = {"embedding": os.path.abspath(npy_path)}
+    return combined
+
 def run_harmony_integration(combined, batch_key="species", use_rep="X_uce",
                              combine_keys=False, theta=None, lamb=None,
                              sigma=0.1, nclust=None, max_iter_harmony=HARMONY_MAX_ITER, epsilon_harmony=HARMONY_EPSILON,
@@ -776,9 +841,16 @@ def parse_args():
     p = argparse.ArgumentParser(
         description="Compare UCE embedding distances across species and cell types.")
     p.add_argument("--harmony-params", default=HARMONY_PARAMS_JSON,
-                   help="best_params.json from harmony_hyperparam_sweep.py")
+                   help="best_params.json from harmony_hyperparam_sweep.py (re-runs Harmony "
+                        "with those settings)")
+    p.add_argument("--harmony-embedding", default=HARMONY_EMBEDDING_NPY,
+                   help="X_uce_harmony_best.npy from the sweep's --apply-best; used as-is "
+                        "instead of re-running Harmony")
+    p.add_argument("--harmony-obs-names", default=None,
+                   help="Cell-ID file for --harmony-embedding (default: obs_names.txt in the "
+                        "same folder)")
     return p.parse_args()
-
+  
 def add_broad_cell_type(combined, broad_map):
     """Map cell_type_std to a broad class in .obs['broad_cell_type'].
     Fine types missing from broad_map become 'unassigned' (reported, then skipped)."""
@@ -836,7 +908,7 @@ def write_pairwise_distances_by_broad_type(combined, use_rep, out_dir, metric="c
         ids = obs.index.to_numpy()[pos]
         species = obs["species"].astype(str).to_numpy()[pos]
         X = X_all[pos]
-        safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", broad)
+        safe = "".join(ch if ch.isalnum() or ch in "_.-" else "_" for ch in broad)
         path = os.path.join(out_dir, f"pairwise_{safe}.csv" + (".gz" if compress else ""))
         print(f"'{broad}': {n} cells -> {n_pairs:,} pairs -> {path}")
         opener = gzip.open(path, "wt") if compress else open(path, "w")
@@ -866,23 +938,37 @@ def main():
 
     use_rep = "X_uce"
     use_harmony = USE_HARMONY
-    harmony_kwargs = dict(batch_key=HARMONY_BATCH_KEY, combine_keys=USE_COMBINED_BATCH_KEY)
-    if args.harmony_params:
-        harmony_kwargs = load_harmony_params(args.harmony_params)
-        use_harmony = True
-        with open(f"{OUT_PREFIX}_harmony_params_used.json", "w") as f:
-            json.dump({"source": args.harmony_params, **harmony_kwargs}, f, indent=2)
-
-    if use_harmony:
+    harmony_label = " (Harmony-integrated)"
+    if args.harmony_embedding:
+        if args.harmony_params:
+            print("NOTE: --harmony-embedding given, so --harmony-params is ignored "
+                  "(Harmony is not re-run).")
         if CENTER_BY_SPECIES:
-            print("Both Harmony and CENTER_BY_SPECIES are on — "
-                  "running Harmony only and skipping centering, since "
-                  "combining both is usually redundant.")
-        combined = run_harmony_integration(combined, use_rep=use_rep, **harmony_kwargs)
+            print("Using the precomputed Harmony embedding; CENTER_BY_SPECIES is skipped.")
+        combined = load_precomputed_harmony(combined, args.harmony_embedding,
+                                            args.harmony_obs_names)
         use_rep = "X_uce_harmony"
-    elif CENTER_BY_SPECIES:
-        combined = center_by_species(combined)
-        use_rep = "X_uce_centered"
+        use_harmony = True
+        harmony_label = " (Harmony, precomputed from sweep)"
+    else:
+        harmony_kwargs = dict(batch_key=HARMONY_BATCH_KEY, combine_keys=USE_COMBINED_BATCH_KEY)
+        if args.harmony_params:
+            harmony_kwargs = load_harmony_params(args.harmony_params)
+            use_harmony = True
+            harmony_label = " (Harmony, tuned)"
+            with open(f"{OUT_PREFIX}_harmony_params_used.json", "w") as f:
+                json.dump({"source": args.harmony_params, **harmony_kwargs}, f, indent=2)
+
+        if use_harmony:
+            if CENTER_BY_SPECIES:
+                print("Both Harmony and CENTER_BY_SPECIES are on — "
+                      "running Harmony only and skipping centering, since "
+                      "combining both is usually redundant.")
+            combined = run_harmony_integration(combined, use_rep=use_rep, **harmony_kwargs)
+            use_rep = "X_uce_harmony"
+        elif CENTER_BY_SPECIES:
+            combined = center_by_species(combined)
+            use_rep = "X_uce_centered"
         
     combined = add_broad_cell_type(combined, BROAD_CELL_TYPES)
     if WRITE_PAIRWISE_DISTANCES:
@@ -906,7 +992,11 @@ def main():
           f"{OUT_PREFIX}_study_controlled_diagnostic.csv")
  
     if use_harmony:
-        title_suffix = " (Harmony, tuned)" if args.harmony_params else " (Harmony-integrated)"
+        title_suffix = harmony_label
+    elif CENTER_BY_SPECIES:
+        title_suffix = " (species-centered)"
+    else:
+        title_suffix = ""
     elif CENTER_BY_SPECIES:
         title_suffix = " (species-centered)"
     else:
