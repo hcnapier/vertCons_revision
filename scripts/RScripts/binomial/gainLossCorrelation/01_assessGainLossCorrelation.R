@@ -9,6 +9,7 @@ require(dplyr)
 require(reshape2)
 require(ggplot2)
 require(ggpmisc)
+require(ggsignif)
 
 
 ## 0.2 Load data ----
@@ -79,7 +80,7 @@ adjR2 <- summary(allModel)$adj.r.squared
 
 allGainLoss_MYA <- ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
   geom_point(alpha = 0.7, stroke = 0, size = 3) + 
-  scale_color_manual(values = rev(zissou_15)) +
+  scale_color_manual(values = rev(zissou_15[2:14])) +
   geom_smooth(method = "lm", color = "azure4", se = TRUE) +
   annotate("text", x = 2.5, y =0.75,
            label = sprintf('"Adj." ~ R^2 == "%.3f"', adjR2),
@@ -87,7 +88,7 @@ allGainLoss_MYA <- ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = 
   theme_minimal() + 
   labs(x = "pCRE Gain Enrichment Score", 
        y = "pCRE Loss Enrichment Score", 
-       color = "Million Years Ago")
+       color = "MYA")
 
 setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/figures/gainLossCorrPlots")
 ggsave("allGainLossCorr.png", allGainLoss_MYA, width = 6.51, height = 4, bg = "transparent")
@@ -121,7 +122,7 @@ ggplot(gainLoss, aes(x = log(gainEnrich), y = log(lossEnrich), color = nodeName)
 ## 3.2 Recent nodes ----
 ggplot(gainLoss_recent, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
   geom_point(alpha = 0.7, stroke = 0, size = 3) + 
-  scale_color_manual(values = rev(zissou_15)) +
+  scale_color_manual(values = rev(zissou_15[2:14])) +
   geom_smooth(method = "lm", color = "azure4", se = TRUE) +
   theme_minimal()
 
@@ -206,22 +207,22 @@ for(i in 1:nrow(gainLoss)){
     gainLoss$pointColor[i] <- "#DDDDDD00"
   }else if(str_detect(gainLoss$CellType[i], "placentalNeuron")){
     gainLoss$pointColor[i] <- "#117733"
-    gainLoss$legendLabel[i] <- "Placental Neuron"
+    gainLoss$legendLabel[i] <- "Neuron"
   }else if(str_detect(gainLoss$CellType[i], "extravillousTrophoblast")){
-    gainLoss$pointColor[i] <- "#332288"
+    gainLoss$pointColor[i] <- "#DDAA33"
     gainLoss$legendLabel[i] <- "Trophoblast"
   }else if(str_detect(gainLoss$CellType[i], "syncitiotrophoblastCytotrophoblast")){
-    gainLoss$pointColor[i] <- "#332288"
+    gainLoss$pointColor[i] <- "#DDAA33"
     gainLoss$legendLabel[i] <- "Trophoblast"
   }else if(str_detect(gainLoss$CellType[i], "macrophagePlacental")){
     gainLoss$pointColor[i] <- "#88CCEE"
-    gainLoss$legendLabel[i] <- "Placental Macrophage"
+    gainLoss$legendLabel[i] <- "Macrophage"
   }else if(str_detect(gainLoss$CellType[i], "fibroPlacental")){
     gainLoss$pointColor[i] <- "#44AA99"
-    gainLoss$legendLabel[i] <- "Placental Fibroblast"
+    gainLoss$legendLabel[i] <- "Fibroblast"
   }else if (str_detect(gainLoss$CellType[i], "endothelialPlacental")){
     gainLoss$pointColor[i] <- "#999933"
-    gainLoss$legendLabel[i] <- "Placental Endothelial Cell"
+    gainLoss$legendLabel[i] <- "Endothelial Cell"
   }
 }
 
@@ -246,10 +247,85 @@ placentaGainLossCorr <- ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich)) +
   scale_color_identity(guide = "legend",
                        breaks = legendKey$pointColor,
                        labels = legendKey$legendLabel,
-                       name = "Placental Cell Types") +
+                       name = "Placental Cell Type") +
   theme_minimal() + 
   labs(x = "pCRE Gain Enrichment Score", 
         y = "pCRE Loss Enrichment Score")
 setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/figures/gainLossCorrPlots")
 ggsave("placentaGainLossCorr.png", placentaGainLossCorr, width = 7, height = 4, bg = "transparent")
 
+
+# 4.0 Compute turnover magnitude score ----
+## Within placental mammals for placental cell types
+## 4.1 Compute turnover magnitude score ----
+placentaPts$turnoverMag_mult <- placentaPts$lossEnrich * placentaPts$gainEnrich
+placentaPts$turnoverMag_add <- placentaPts$lossEnrich + placentaPts$gainEnrich
+placentaPts$colMYA <- NA
+for(currNode in as.numeric(placentaPts$nodeName)){
+  placentaPts$colMYA[which(placentaPts$nodeName == currNode)] <- rev(zissou_15)[currNode]
+}
+placentaPts$broadCell_MYA <- paste(placentaPts$legendLabel, placentaPts$MYA, sep = "_")
+placentaPts <- placentaPts %>% 
+  group_by(broadCell_MYA) %>% 
+  mutate(avg_turnMag_add = mean(turnoverMag_add, na.rm = TRUE)) %>% 
+  ungroup()
+
+placentaPts <- placentaPts %>% 
+  group_by(broadCell_MYA) %>% 
+  mutate(avg_turnMag_mult = mean(turnoverMag_mult, na.rm = TRUE)) %>% 
+  ungroup()
+
+
+## 4.2 Subset to include only nodes within placental mammals ----
+recentPlacentaPts <- placentaPts %>%
+  filter(MYA < 100) %>%
+  select(c(legendLabel, avg_turnMag_add, pointColor, colMYA, MYA, avg_turnMag_mult)) %>%
+  distinct()
+placentaMYALegendKey <- distinct(recentPlacentaPts, colMYA, MYA)
+
+placentaTurnMag_add <- ggplot(data = recentPlacentaPts, aes(y = avg_turnMag_add, x = legendLabel)) +
+  geom_boxplot(aes(color = pointColor), outlier.shape = NA) + 
+  geom_jitter(aes(color = colMYA), width = 0.2, size = 2.25, alpha = 0.8) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_identity(guide = "legend",
+                       breaks = placentaMYALegendKey$colMYA,
+                       labels = placentaMYALegendKey$MYA,
+                       name = "MYA") + 
+  labs(x = "Placental Cell Type", 
+       y = "Turnover Magnitude") + 
+  geom_signif(
+    comparisons = list(c("Trophoblast", "Macrophage")), 
+    map_signif_level = TRUE, textsize = 5, color = "azure4") +
+  geom_signif(
+    comparisons = list(c("Fibroblast", "Macrophage")), 
+    map_signif_level = TRUE, textsize = 5, y_position = 3.0, color = "azure4") +
+  geom_signif(
+    comparisons = list(c("Endothelial Cell", "Neuron")), 
+    map_signif_level = TRUE, textsize = 5, y_position = 2.5, color = "azure4")
+
+ggplot(data = recentPlacentaPts, aes(y = avg_turnMag_mult, x = legendLabel)) +
+  geom_boxplot(aes(color = pointColor), outlier.shape = NA) + 
+  geom_jitter(aes(color = colMYA), width = 0.2, size = 2.25, alpha = 0.8) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_identity(guide = "legend",
+                       breaks = placentaMYALegendKey$colMYA,
+                       labels = placentaMYALegendKey$MYA,
+                       name = "MYA") + 
+  labs(x = "Placental Cell Type", 
+       y = "Turnover Magnitude \n (pCRE Gain Enrichment * pCRE Loss Enrichment)") + 
+  geom_signif(
+    comparisons = list(c("Trophoblast", "Macrophage")), 
+    map_signif_level = TRUE, textsize = 5, color = "azure4") +
+  geom_signif(
+    comparisons = list(c("Fibroblast", "Macrophage")), 
+    map_signif_level = TRUE, textsize = 5, y_position = 2.25, color = "azure4") +
+  geom_signif(
+    comparisons = list(c("Endothelial Cell", "Neuron")), 
+    map_signif_level = TRUE, textsize = 5, y_position = 1.75, color = "azure4")
+
+setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/figures/gainLossCorrPlots")
+ggsave("placentaTurnMag_add.png", placentaTurnMag_add, width = 3, height = 5, bg = "transparent")
+
+  
