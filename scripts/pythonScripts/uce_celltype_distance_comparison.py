@@ -314,7 +314,9 @@ def load_harmony_params(path):
     if missing:
         raise ValueError(f"{path} is missing {missing}; is it a best_params.json from the sweep?")
 
-        json_max_iter = int(p.get("max_iter_harmony", HARMONY_MAX_ITER))
+    # Must be defined BEFORE kwargs below, which uses it.
+    json_max_iter = int(p.get("max_iter_harmony") or HARMONY_MAX_ITER)
+
     kwargs = dict(
         batch_key=p["covariates"],
         combine_keys=False,  # the sweep always passes covariates separately
@@ -325,15 +327,15 @@ def load_harmony_params(path):
         # max_iter is only a safety cap: never lower than HARMONY_MAX_ITER, so an old
         # JSON (e.g. max_iter_harmony=20) can't cut Harmony off before it converges.
         max_iter_harmony=max(json_max_iter, HARMONY_MAX_ITER),
-        epsilon_harmony=float(p.get("epsilon_harmony", HARMONY_EPSILON)),
+        epsilon_harmony=float(p.get("epsilon_harmony") or HARMONY_EPSILON),
         n_pcs=int(p.get("n_pcs") or 0),
     )
     print(f"Loaded tuned Harmony parameters from {path}: "
           + ", ".join(f"{k}={v}" for k, v in kwargs.items()))
-          
     if "epsilon_harmony" not in p:
-    print(f"NOTE: {path} has no epsilon_harmony (older sweep); using HARMONY_EPSILON="
-          f"{HARMONY_EPSILON}. Rerun the sweep so tuning and this run use the same threshold.")
+        print(f"NOTE: {path} has no epsilon_harmony (older sweep); using HARMONY_EPSILON="
+              f"{HARMONY_EPSILON}. Rerun the sweep so tuning and this run use the same threshold.")
+
     if p.get("metric") and p["metric"] != METRIC:
         print(f"WARNING: parameters were tuned with metric='{p['metric']}' but METRIC='{METRIC}'.")
     if not p.get("passed_tan_check", True):
