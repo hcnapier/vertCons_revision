@@ -2,7 +2,7 @@
 #SBATCH --job-name=harmonyHyperparamSweep
 #SBATCH --output=logs/harmonyHyperparam_%A_%a.out
 #SBATCH --error=logs/harmonyHyperparam_%A_%a.err
-#SBATCH --time=05:00:00
+#SBATCH --time=20:00:00
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
