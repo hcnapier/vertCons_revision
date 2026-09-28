@@ -997,10 +997,7 @@ def main():
         title_suffix = " (species-centered)"
     else:
         title_suffix = ""
-    elif CENTER_BY_SPECIES:
-        title_suffix = " (species-centered)"
-    else:
-        title_suffix = ""
+
     plot_heatmap(dist_df, f"{OUT_PREFIX}_heatmap.png",
                  title=f"UCE centroid distances: species (phylogenetic order) | cell type{title_suffix}")
  
