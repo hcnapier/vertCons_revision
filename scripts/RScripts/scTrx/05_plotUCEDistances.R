@@ -60,12 +60,13 @@ uceDist_bwPlot <- ggplot(data = uceDist, aes(x = cellType, y = distance)) +
   theme_minimal() + 
   geom_signif(
     comparisons = list(c("Trophoblast", "Macrophage")), 
-    map_signif_level = TRUE, textsize = 7, color = "azure4", y_position = 1.85) +
+    map_signif_level = TRUE, textsize = 6, color = "azure4", y_position = 1.85) +
   geom_signif(
     comparisons = list(c("Endothelial Cell", "Macrophage")), 
-    map_signif_level = TRUE, textsize = 7, y_position = 1.7, color = "azure4") +
+    map_signif_level = TRUE, textsize = 6, y_position = 1.7, color = "azure4") +
   labs(y = "UCE Embedding Distance", 
-       x = "Placental Cell Type")
+       x = "Placental Cell Type") + 
+  ylim(0, 2.1)
 uceDist_bwPlot
 setwd("/hpc/group/vertgenlab/hailey/vertCons/code/vertCons_revision/figures/fig4")
 ggsave("uceDist_bwPlot.png", uceDist_bwPlot, width = 6, height = 4, bg = "transparent")
