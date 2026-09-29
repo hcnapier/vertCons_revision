@@ -1,3 +1,13 @@
+# 0.0 Setup ----
+## 0.1 Load packages ----
+require(ggplot2)
+
+## 0.2 Load data ----
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+neuron_binom_combNodes <- readRDS("neuron_binom_combNodes.rds")
+muscle_binom_combNodes <- readRDS("muscle_binom_combNodes.rds")
+innateImmune_binom_combNodes <- readRDS("innateImmune_binom_combNodes.rds")
+
 # 1.0 All Nodes----
 ## 1.1 Neurons ----
 labels = c("excitatoryneuron" = "Excitatory Neuron", 
@@ -276,4 +286,29 @@ ggplot(placenta_binom_combNodes, aes(x = MYA, y = enrich)) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
   facet_wrap(~cellType, 
              ncol = 2, 
+             labeller = as_labeller(labels)) 
+
+
+# 3.0 Figure 2 Plots ----
+## Panel B ----
+labels = c("excitatoryneuron" = "Excitatory Neuron", 
+           "inhibitoryneuron" = "Inhibitory Neuron")
+ggplot(neuron_binom_combNodes, aes(x = MYA, y = enrich)) + 
+  geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 0.8) +
+  geom_line(linewidth = 1) + 
+  theme_minimal() + 
+  scale_x_reverse() +
+  geom_point(aes(shape = sig), size = 3) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
+                     labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
+  scale_color_discrete(labels = labels) +
+  labs(title = "Gains, Binomial Enrichment, Neurons",
+       x = "Million Years Ago (MYA)", 
+       y = "Enrichment", 
+       shape = paste0("p < ", 0.05)) + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) +
+  ylim(0,2) + 
+  facet_wrap(~cellType, 
+             ncol = 1, 
              labeller = as_labeller(labels)) 

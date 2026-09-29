@@ -9,13 +9,13 @@ require(dplyr)
 require(reshape2)
 require(ggplot2)
 require(ggpmisc)
+require(ggsignif)
 
 
 ## 0.2 Load data ----
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 enrichMat_loss <- readRDS("enrichMat_loss.rds")
-#enrichMat_combNodes <- readRDS("enrichMat_combNodes.rds")
-enrichMat_combNodes <- testOut
+enrichMat_combNodes <- readRDS("enrichMat_combNodes.rds")
 binomPvalMat_combNodes <- readRDS("binomPvalMat_combNodes.rds")
 binomPvalMat_loss <- readRDS("binomPvalMat_loss.rds")
 
@@ -26,6 +26,10 @@ lossEnr_long <- melt(enrichMat_loss, varnames = c("CellType", "nodeName"), value
 combNodeEnr_long <- melt(enrichMat_combNodes, varnames = c("CellType", "nodeName"), value.name = "gainEnrich")
 lossPval_long <- melt(binomPvalMat_loss, varnames = c("CellType", "nodeName"), value.name = "lossPval")
 combNodePval_long <- melt(binomPvalMat_combNodes, varnames = c("CellType", "nodeName"), value.name = "gainPval")
+combNodePval_long$nodeName <- str_remove_all(combNodePval_long$nodeName, "Nodes")
+combNodePval_long$nodeName <- str_remove_all(combNodePval_long$nodeName, "Node")
+combNodeEnr_long$nodeName <- str_remove_all(combNodeEnr_long$nodeName, "Node")
+combNodeEnr_long$nodeName <- str_remove_all(combNodeEnr_long$nodeName, "Node")
 lossPval_long$nodeName <- str_remove_all(lossPval_long$nodeName, "Node")
 lossEnr_long$nodeName <- str_remove_all(lossEnr_long$nodeName, "Node")
 combNode_MYA <- data.frame(nodeName = combNodeEnr_long$nodeName %>% unique(), MYA = MYA)
@@ -38,8 +42,6 @@ combNodePval_long <- full_join(combNodePval_long, combNode_MYA)
 ## 1.2 Merge matrices together ----
 loss <- inner_join(lossPval_long, lossEnr_long)
 gain <- inner_join(combNodeEnr_long, combNodePval_long)
-gain$nodeName <- str_remove_all(gain$nodeName, "Nodes")
-gain$nodeName <- str_remove_all(gain$nodeName, "Node")
 gainLoss <- inner_join(gain, loss)
 gainLoss$MillionYearsAgo <- as.factor(gainLoss$MYA)
 
@@ -72,11 +74,25 @@ ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich)) +
   geom_smooth(method = "lm", color = "azure4", se = TRUE) +
   theme_minimal() 
 
-ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
+
+allModel <- lm(gainEnrich ~ lossEnrich, data = gainLoss)
+adjR2 <- summary(allModel)$adj.r.squared
+
+allGainLoss_MYA <- ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
   geom_point(alpha = 0.7, stroke = 0, size = 3) + 
-  scale_color_manual(values = rev(zissou_15)) +
+  scale_color_manual(values = rev(zissou_15[2:14])) +
   geom_smooth(method = "lm", color = "azure4", se = TRUE) +
-  theme_minimal()
+  annotate("text", x = 2.5, y =0.75,
+           label = sprintf('"Adj." ~ R^2 == "%.3f"', adjR2),
+           parse = TRUE) +
+  theme_minimal() + 
+  labs(x = "pCRE Gain Enrichment Score", 
+       y = "pCRE Loss Enrichment Score", 
+       color = "MYA")
+
+setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/figures/gainLossCorrPlots")
+ggsave("allGainLossCorr.png", allGainLoss_MYA, width = 6, height = 4, bg = "transparent")
+
 
 ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
   geom_point(alpha = 0.7, stroke = 0, size = 3) + 
@@ -106,7 +122,7 @@ ggplot(gainLoss, aes(x = log(gainEnrich), y = log(lossEnrich), color = nodeName)
 ## 3.2 Recent nodes ----
 ggplot(gainLoss_recent, aes(x = gainEnrich, y = lossEnrich, color = MillionYearsAgo)) +
   geom_point(alpha = 0.7, stroke = 0, size = 3) + 
-  scale_color_manual(values = rev(zissou_15)) +
+  scale_color_manual(values = rev(zissou_15[2:14])) +
   geom_smooth(method = "lm", color = "azure4", se = TRUE) +
   theme_minimal()
 
@@ -181,3 +197,137 @@ ggplot(placentaTrophoblastGainLoss, aes(x = gainEnrich, y = lossEnrich, color = 
   #geom_smooth(method = "lm", color = "azure4", se = TRUE) + 
   theme_minimal() +
   labs(title = "Placenta Trophoblasts")
+
+## 3.5 Color placenta cell types different colors ----
+# colors are based on Paul Tol's colorblind friendly muted palette
+gainLoss$pointColor <- rep("NA", nrow(gainLoss))
+gainLoss$legendLabel <- rep("NA", nrow(gainLoss))
+for(i in 1:nrow(gainLoss)){
+  if(gainLoss$placenta[i] == FALSE){
+    gainLoss$pointColor[i] <- "#DDDDDD00"
+  }else if(str_detect(gainLoss$CellType[i], "placentalNeuron")){
+    gainLoss$pointColor[i] <- "#117733"
+    gainLoss$legendLabel[i] <- "Neuron"
+  }else if(str_detect(gainLoss$CellType[i], "extravillousTrophoblast")){
+    gainLoss$pointColor[i] <- "#DDAA33"
+    gainLoss$legendLabel[i] <- "Trophoblast"
+  }else if(str_detect(gainLoss$CellType[i], "syncitiotrophoblastCytotrophoblast")){
+    gainLoss$pointColor[i] <- "#DDAA33"
+    gainLoss$legendLabel[i] <- "Trophoblast"
+  }else if(str_detect(gainLoss$CellType[i], "macrophagePlacental")){
+    gainLoss$pointColor[i] <- "#88CCEE"
+    gainLoss$legendLabel[i] <- "Macrophage"
+  }else if(str_detect(gainLoss$CellType[i], "fibroPlacental")){
+    gainLoss$pointColor[i] <- "#44AA99"
+    gainLoss$legendLabel[i] <- "Fibroblast"
+  }else if (str_detect(gainLoss$CellType[i], "endothelialPlacental")){
+    gainLoss$pointColor[i] <- "#999933"
+    gainLoss$legendLabel[i] <- "Endothelial Cell"
+  }
+}
+
+placentaPts <- filter(gainLoss, placenta == TRUE)
+legendKey <- placentaPts %>%
+  distinct(pointColor, legendLabel) %>%
+  arrange(legendLabel)
+
+placentaModel <- lm(gainEnrich ~ lossEnrich, data = placentaPts)
+adjR2 <- summary(placentaModel)$adj.r.squared
+
+allModel <- lm(gainEnrich ~ lossEnrich, data = gainLoss)
+summary(allModel)
+
+placentaGainLossCorr <- ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich)) +
+  geom_point(data = filter(gainLoss, placenta == FALSE),
+             size = 3, stroke = 0, color = "azure3", alpha = 0.5) +
+  geom_point(data = placentaPts,
+             aes(color = pointColor), size = 3) +
+  geom_smooth(data = placentaPts, method = "lm", color = "azure4", fill = "azure4",se = TRUE) + 
+  annotate("text", x = 2.5, y =0.75,
+           label = sprintf('"Adj." ~ R^2 == "%.3f"', adjR2),
+           parse = TRUE) +
+  scale_color_identity(guide = "legend",
+                       breaks = legendKey$pointColor,
+                       labels = legendKey$legendLabel,
+                       name = "Placental Cell Type") +
+  theme_minimal() + 
+  labs(x = "pCRE Gain Enrichment Score", 
+        y = "pCRE Loss Enrichment Score")
+setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/figures/gainLossCorrPlots")
+ggsave("placentaGainLossCorr.png", placentaGainLossCorr, width = 7, height = 4, bg = "transparent")
+
+
+# 4.0 Compute turnover magnitude score ----
+## Within placental mammals for placental cell types
+## 4.1 Compute turnover magnitude score ----
+placentaPts$turnoverMag_mult <- placentaPts$lossEnrich * placentaPts$gainEnrich
+placentaPts$turnoverMag_add <- placentaPts$lossEnrich + placentaPts$gainEnrich
+placentaPts$colMYA <- NA
+for(currNode in as.numeric(placentaPts$nodeName)){
+  placentaPts$colMYA[which(placentaPts$nodeName == currNode)] <- rev(zissou_15)[currNode]
+}
+placentaPts$broadCell_MYA <- paste(placentaPts$legendLabel, placentaPts$MYA, sep = "_")
+placentaPts <- placentaPts %>% 
+  group_by(broadCell_MYA) %>% 
+  mutate(avg_turnMag_add = mean(turnoverMag_add, na.rm = TRUE)) %>% 
+  ungroup()
+
+placentaPts <- placentaPts %>% 
+  group_by(broadCell_MYA) %>% 
+  mutate(avg_turnMag_mult = mean(turnoverMag_mult, na.rm = TRUE)) %>% 
+  ungroup()
+
+
+## 4.2 Subset to include only nodes within placental mammals ----
+recentPlacentaPts <- placentaPts %>%
+  filter(MYA < 100) %>%
+  select(c(legendLabel, avg_turnMag_add, pointColor, colMYA, MYA, avg_turnMag_mult)) %>%
+  distinct()
+placentaMYALegendKey <- distinct(recentPlacentaPts, colMYA, MYA)
+
+placentaTurnMag_add <- ggplot(data = recentPlacentaPts, aes(y = avg_turnMag_add, x = legendLabel)) +
+  geom_boxplot(aes(color = pointColor), outlier.shape = NA) + 
+  geom_jitter(aes(color = colMYA), width = 0.2, size = 2.25, alpha = 0.8) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_identity(guide = "legend",
+                       breaks = placentaMYALegendKey$colMYA,
+                       labels = placentaMYALegendKey$MYA,
+                       name = "MYA") + 
+  labs(x = "Placental Cell Type", 
+       y = "Turnover Magnitude") + 
+  geom_signif(
+    comparisons = list(c("Trophoblast", "Macrophage")), 
+    map_signif_level = TRUE, textsize = 5, color = "azure4") +
+  geom_signif(
+    comparisons = list(c("Fibroblast", "Macrophage")), 
+    map_signif_level = TRUE, textsize = 5, y_position = 3.0, color = "azure4") +
+  geom_signif(
+    comparisons = list(c("Endothelial Cell", "Neuron")), 
+    map_signif_level = TRUE, textsize = 5, y_position = 2.5, color = "azure4")
+
+ggplot(data = recentPlacentaPts, aes(y = avg_turnMag_mult, x = legendLabel)) +
+  geom_boxplot(aes(color = pointColor), outlier.shape = NA) + 
+  geom_jitter(aes(color = colMYA), width = 0.2, size = 2.25, alpha = 0.8) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_identity(guide = "legend",
+                       breaks = placentaMYALegendKey$colMYA,
+                       labels = placentaMYALegendKey$MYA,
+                       name = "MYA") + 
+  labs(x = "Placental Cell Type", 
+       y = "Turnover Magnitude \n (pCRE Gain Enrichment * pCRE Loss Enrichment)") + 
+  geom_signif(
+    comparisons = list(c("Trophoblast", "Macrophage")), 
+    map_signif_level = TRUE, textsize = 5, color = "azure4") +
+  geom_signif(
+    comparisons = list(c("Fibroblast", "Macrophage")), 
+    map_signif_level = TRUE, textsize = 5, y_position = 2.25, color = "azure4") +
+  geom_signif(
+    comparisons = list(c("Endothelial Cell", "Neuron")), 
+    map_signif_level = TRUE, textsize = 5, y_position = 1.75, color = "azure4")
+
+setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/figures/gainLossCorrPlots")
+ggsave("placentaTurnMag_add.png", placentaTurnMag_add, width = 3, height = 5, bg = "transparent")
+
+  

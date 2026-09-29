@@ -9,3 +9,4 @@ scripts/shellScripts/logs/*
 .ipynb_checkpoints/
 **/ .ipynb_checkpoints/
 **/logs/
+scripts/RScripts/rData/*
