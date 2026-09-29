@@ -185,20 +185,20 @@ USE_HARMONY = True
 # ["species", "study", "technology"] — Harmony supports multiple batch
 # variables simultaneously. Available columns after load_and_merge are:
 # "dataset", "species", "study", "technology".
-HARMONY_BATCH_KEY = ["study", "technology"]
+HARMONY_BATCH_KEY = ["species", "study", "technology"]
 
 # Optional: path to best_params.json from harmony_hyperparam_sweep.py. Set it
 # here or pass --harmony-params on the command line (the command line wins).
 # When set, Harmony runs with the tuned covariates / theta / lambda / sigma /
 # nclust / iterations / PCA setting, overriding HARMONY_BATCH_KEY and
 # USE_COMBINED_BATCH_KEY, and USE_HARMONY is treated as True.
-HARMONY_PARAMS_JSON = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/harmonySweep/best_params.json"
+HARMONY_PARAMS_JSON = None
 
 # Optional: X_uce_harmony_best.npy from harmony_hyperparam_sweep.py --apply-best.
 # When set (here or with --harmony-embedding), that embedding is used as
 # .obsm["X_uce_harmony"] and Harmony is NOT re-run. obs_names.txt from the same
 # folder is used to match cells.
-HARMONY_EMBEDDING_NPY = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/harmonySweep/X_uce_harmony_best.npy"
+HARMONY_EMBEDDING_NPY = None
 
 # Harmony runs until its objective stops changing (relative change < HARMONY_EPSILON).
 # HARMONY_MAX_ITER is only a safety cap; the log says if it was hit before convergence.
