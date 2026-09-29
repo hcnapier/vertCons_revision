@@ -178,7 +178,7 @@ METRIC = "cosine"
 # a global per-species shift. If both this and CENTER_BY_SPECIES are True,
 # Harmony takes priority and centering is skipped (a warning is printed),
 # since running both is usually redundant.
-USE_HARMONY = True
+USE_HARMONY = False
  
 # .obs column(s) Harmony integrates over. Can be a single string ("species")
 # or a list to correct for multiple batch effects at once, e.g.
@@ -225,7 +225,7 @@ USE_COMBINED_BATCH_KEY = False
 # If True, mean-center each species' embeddings (subtract that species'
 # overall mean X_uce vector from every one of its cells) before computing
 # distances, UMAP, and the separation score.
-CENTER_BY_SPECIES = False
+CENTER_BY_SPECIES = True
 
 # --- Study-controlled diagnostic ---
 # Which .obs["study"] value to use as the "study-controlled" subset for
@@ -238,7 +238,7 @@ CENTER_BY_SPECIES = False
 DIAGNOSTIC_STUDY = "Tan"
 
 # Where to save outputs
-OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances"
+OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances/center"
 
 # =============================================================================
 
