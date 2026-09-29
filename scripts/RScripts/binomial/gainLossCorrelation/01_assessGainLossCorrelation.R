@@ -254,7 +254,7 @@ placentaGainLossCorr <- ggplot(gainLoss, aes(x = gainEnrich, y = lossEnrich)) +
   labs(x = "pCRE Gain Enrichment Score", 
         y = "pCRE Loss Enrichment Score")
 setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/figures/gainLossCorrPlots")
-ggsave("placentaGainLossCorr.png", placentaGainLossCorr, width = 7, height = 4, bg = "transparent")
+ggsave("placentaGainLossCorr.png", placentaGainLossCorr, width = 6.7, height = 4, bg = "transparent")
 
 
 # 4.0 Compute turnover magnitude score ----
@@ -298,36 +298,39 @@ placentaTurnMag_add <- ggplot(data = recentPlacentaPts, aes(y = avg_turnMag_add,
        y = "Turnover Magnitude") + 
   geom_signif(
     comparisons = list(c("Trophoblast", "Macrophage")), 
-    map_signif_level = TRUE, textsize = 5, color = "azure4") +
+    map_signif_level = TRUE, textsize = 6, color = "azure4") +
   geom_signif(
     comparisons = list(c("Fibroblast", "Macrophage")), 
-    map_signif_level = TRUE, textsize = 5, y_position = 3.0, color = "azure4") +
+    map_signif_level = TRUE, textsize = 6, y_position = 3.0, color = "azure4") +
   geom_signif(
     comparisons = list(c("Endothelial Cell", "Neuron")), 
-    map_signif_level = TRUE, textsize = 5, y_position = 2.5, color = "azure4")
+    map_signif_level = TRUE, textsize = 6, y_position = 2.5, color = "azure4") + 
+  ylim(0, 4.75)
+placentaTurnMag_add
 
-ggplot(data = recentPlacentaPts, aes(y = avg_turnMag_mult, x = legendLabel)) +
-  geom_boxplot(aes(color = pointColor), outlier.shape = NA) + 
-  geom_jitter(aes(color = colMYA), width = 0.2, size = 2.25, alpha = 0.8) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_color_identity(guide = "legend",
-                       breaks = placentaMYALegendKey$colMYA,
-                       labels = placentaMYALegendKey$MYA,
-                       name = "MYA") + 
-  labs(x = "Placental Cell Type", 
-       y = "Turnover Magnitude \n (pCRE Gain Enrichment * pCRE Loss Enrichment)") + 
-  geom_signif(
-    comparisons = list(c("Trophoblast", "Macrophage")), 
-    map_signif_level = TRUE, textsize = 5, color = "azure4") +
-  geom_signif(
-    comparisons = list(c("Fibroblast", "Macrophage")), 
-    map_signif_level = TRUE, textsize = 5, y_position = 2.25, color = "azure4") +
-  geom_signif(
-    comparisons = list(c("Endothelial Cell", "Neuron")), 
-    map_signif_level = TRUE, textsize = 5, y_position = 1.75, color = "azure4")
+
+# ggplot(data = recentPlacentaPts, aes(y = avg_turnMag_mult, x = legendLabel)) +
+#   geom_boxplot(aes(color = pointColor), outlier.shape = NA) + 
+#   geom_jitter(aes(color = colMYA), width = 0.2, size = 2.25, alpha = 0.8) +
+#   theme_minimal() +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   scale_color_identity(guide = "legend",
+#                        breaks = placentaMYALegendKey$colMYA,
+#                        labels = placentaMYALegendKey$MYA,
+#                        name = "MYA") + 
+#   labs(x = "Placental Cell Type", 
+#        y = "Turnover Magnitude \n (pCRE Gain Enrichment * pCRE Loss Enrichment)") + 
+#   geom_signif(
+#     comparisons = list(c("Trophoblast", "Macrophage")), 
+#     map_signif_level = TRUE, textsize = 6, color = "azure4") +
+#   geom_signif(
+#     comparisons = list(c("Fibroblast", "Macrophage")), 
+#     map_signif_level = TRUE, textsize = 6, y_position = 2.25, color = "azure4") +
+#   geom_signif(
+#     comparisons = list(c("Endothelial Cell", "Neuron")), 
+#     map_signif_level = TRUE, textsize = 6, y_position = 1.75, color = "azure4") 
 
 setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/figures/gainLossCorrPlots")
-ggsave("placentaTurnMag_add.png", placentaTurnMag_add, width = 3, height = 5, bg = "transparent")
+ggsave("placentaTurnMag_add.png", placentaTurnMag_add, width = 3, height = 4, bg = "transparent")
 
   

@@ -28,10 +28,10 @@ import scipy.sparse as sp
 # Path to the combined, embedded AnnData (must have .obsm["X_uce"] and the
 # usual .obs columns: species, study, technology, cell_type_std, dataset,
 # group).
-PATH = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances_combined.h5ad"
+PATH = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/uce_distances/center_combined.h5ad"
 
 # Which .obsm key to export as the integration reduction.
-USE_REP = "X_uce"
+USE_REP = "X_uce_centered"
 
 # Which .obs column to split Seurat "layers" by (one layer per unique
 # value = the unit RPCA/CCA integrates over). Use the same composite-key
