@@ -66,7 +66,8 @@ uceDist_bwPlot <- ggplot(data = uceDist, aes(x = cellType, y = distance)) +
     map_signif_level = TRUE, textsize = 6, y_position = 1.7, color = "azure4") +
   labs(y = "UCE Embedding Distance", 
        x = "Placental Cell Type") + 
-  ylim(0, 2.1)
+  ylim(0, 2.1) + 
+  theme(text = element_text(family = "Helvetica"))
 uceDist_bwPlot
 setwd("/hpc/group/vertgenlab/hailey/vertCons/code/vertCons_revision/figures/fig4")
 ggsave("uceDist_bwPlot.png", uceDist_bwPlot, width = 6, height = 4, bg = "transparent")
