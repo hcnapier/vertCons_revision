@@ -73,8 +73,16 @@ ggsave("uceDist_bwPlot.png", uceDist_bwPlot, width = 6, height = 4, bg = "transp
 
 
 # 4.0 Line plot -----
+uceMeans <- uceDist %>%
+  group_by(color) %>%
+  summarise(meanDist = mean(distance, na.rm = TRUE))
+
 ggplot(data = uceDist, aes(x = distance)) + 
   geom_density(aes(color = color, fill = color), alpha = 0.25) + 
+  geom_vline(data = uceMeans,
+             aes(xintercept = meanDist, color = color),
+             linetype = "dashed", linewidth = 0.8,
+             show.legend = FALSE) +
   scale_color_identity(guide = "legend",
                        breaks = legendKey$color,
                        labels = legendKey$cellType,
