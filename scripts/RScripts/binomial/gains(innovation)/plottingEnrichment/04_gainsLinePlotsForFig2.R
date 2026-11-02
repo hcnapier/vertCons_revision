@@ -85,7 +85,7 @@ muscle_suppPlot <- ggplot(muscle_binom_combNodes, aes(x = MYA, y = enrich)) +
   geom_point(aes(shape = sig), size = 3) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
-  scale_y_continuous(breaks = seq(0, 2.5, by=1), limits=c(0,2.5)) + 
+  scale_y_continuous(breaks = seq(0.75, 1.25, by=0.5), limits=c(0.75,1.25)) + 
   scale_color_discrete(labels = labels) +
   labs(title = "Regulatory Innovation, Muscle", 
        x = "Million Years Ago (MYA)", 
@@ -127,7 +127,7 @@ neuron_subtype_enrichPlot <- ggplot(neuron_binom_combNodes, aes(x = MYA, y = enr
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_fill_manual(name = NULL, values = c("95% CI" = "gray70")) +
-  scale_y_continuous(breaks = seq(0, 2, by=1), limits=c(0,2)) + 
+  scale_y_continuous(breaks = seq(0.5, 1.5, by=0.5), limits=c(0.5,1.5)) + 
   scale_color_discrete(labels = labels) +
   scale_color_identity(guide = "legend",
                        name = "MYA",
@@ -178,7 +178,7 @@ innateImmune_subtype_enrichPlot <- ggplot(immuneSubset, aes(x = MYA, y = enrich)
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_fill_manual(name = NULL, values = c("95% CI" = "gray70")) +
-  scale_y_continuous(breaks = seq(0, 2, by=1), limits=c(0,2)) + 
+  scale_y_continuous(breaks = seq(0.25, 1.75, by=0.75), limits=c(0.10,1.9)) + 
   scale_color_discrete(labels = labels) +
   scale_color_identity(guide = "legend",
                        name = "MYA",

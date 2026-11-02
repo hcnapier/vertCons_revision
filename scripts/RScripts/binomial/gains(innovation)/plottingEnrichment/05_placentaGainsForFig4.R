@@ -165,8 +165,7 @@ ggsave("placentalSynCyto_enrichPlot.png", plot = placentalSynCyto_enrichPlot, bg
 
 # All placental cell types in a facet plot ----
 ## Facet wrapped ----
-labels = c("placentalNeuron" = "Placental Neuron", 
-           "fibroPlacental" = "Placental Fibroblast", 
+labels = c("endothelialPlacental" = "Placental Endothelial",
            "macrophagePlacental" = "Placental Macrophage", 
            "extravillousTrophoblast" = "Extravillous Trophoblast", 
            "syncitiotrophoblastCytotrophoblast" = "Syncitiotrophoblast and Cytotrophoblast")
@@ -179,11 +178,37 @@ ggplot(placenta_binom_combNodes, aes(x = MYA, y = enrich)) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_color_discrete(labels = labels) +
-  labs(title = "Gains, Binomial Enrichment, Placenta", 
+  labs(title = "Gains, Domcke (2020) Placenta", 
        x = "Million Years Ago (MYA)", 
        y = "Enrichment", 
        shape = paste0("p < ", 0.05)) + 
-  ylim(0,3.5) +
+  ylim(0,3.75) +
+  scale_x_reverse() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
+  facet_wrap(~cellType, 
+             ncol = 2, 
+             labeller = as_labeller(labels)) 
+
+
+# Supplemental analysis -- Wang 2026 cross-gestational placenta ----
+labels = c("wang26_Endo" = "Placental Endothelial", 
+           "wang26_HB" = "Placental Macrophage",
+           "wang26_SCT" = "Syncitiotrophoblast", 
+           "wang26_EVT" = "Extravillous Trophoblast")
+ggplot(wang26_binom_combNodes, aes(x = MYA, y = enrich)) + 
+  geom_hline(yintercept = 1, linetype = "longdash") + 
+  geom_ribbon(aes(ymin = enrLowerCI, ymax = enrUpperCI), fill = "darkgray", alpha = 0.8) +
+  geom_line(linewidth = 1, color = "black") + 
+  theme_minimal() + 
+  geom_point(aes(shape = sig), size = 3) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
+                     labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
+  scale_color_discrete(labels = labels) +
+  labs(title = "Gains, Wang (2026) Placenta", 
+       x = "Million Years Ago (MYA)", 
+       y = "Enrichment", 
+       shape = paste0("p < ", 0.05)) + 
+  ylim(0,4.25) +
   scale_x_reverse() +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12)) + 
   facet_wrap(~cellType, 

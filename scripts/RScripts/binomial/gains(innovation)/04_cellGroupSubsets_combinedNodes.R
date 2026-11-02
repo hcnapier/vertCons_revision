@@ -14,8 +14,6 @@ MYA <- c(20, 30, 45, 75, 85, 87, 95, 100, 160, 180, 320, 350, 415, 430, 560)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/functions")
 source("subsetAndBinomCellTypeList.R")
 
-nodeNames <- totalNodeRegions_combNodes$name %>% unique()
-
 ## 1.3 Neurons ----
 neuronTypes <- c("excitatoryneuron", "inhibitoryneuron")
 ### Separate subtypes ----
@@ -104,8 +102,8 @@ saveRDS(innateImmuneComb_binom_combNodes, "innateImmuneComb_binom_combNodes.rds"
 
 
 ## 1.6 Placenta ----
-placentaTypes <- c("placentalNeuron", 
-                   "fibroPlacental", 
+placentaTypes <- c(#"placentalNeuron", 
+                   #"fibroPlacental", 
                    "macrophagePlacental", 
                    "extravillousTrophoblast", 
                    "syncitiotrophoblastCytotrophoblast", 
@@ -122,3 +120,22 @@ placentaGroupBinom_combNodes <- subsetAndBinomCellTypeList(cellTypeList = placen
 placenta_binom_combNodes <- do.call(rbind, placentaGroupBinom_combNodes)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 saveRDS(placenta_binom_combNodes, "placenta_binom_combNodes.rds")
+
+
+## 1.7 Wang 2026 Placenta (supplemental) ----
+wangTypes <- c("wang26_Endo", 
+                   "wang26_HB", 
+                   "wang26_SCT", 
+                   "wang26_EVT")
+### Separate subtypes ----
+wangGroupBinom_combNodes <- subsetAndBinomCellTypeList(cellTypeList = wangTypes,
+                                                           fullDF = nMapLong_combNodes, 
+                                                           totalNodeRegions = totalNodeRegions_combNodes, 
+                                                           totalCellTypeRegions = totalCellTypeRegions, 
+                                                           nodeNames = nodeNames, 
+                                                           MYA = MYA, 
+                                                           groupName = "Wang2026Placenta")
+#### Combine for plotting
+wang26_binom_combNodes <- do.call(rbind, wangGroupBinom_combNodes)
+setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
+saveRDS(wang26_binom_combNodes, "wang26_binom_combNodes.rds")

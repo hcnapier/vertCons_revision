@@ -42,6 +42,7 @@ totalNodeRegions_combNodes <- nMapLong_combNodes %>%
   select(Node, nMapped) %>%
   group_by(Node) %>%
   summarize(nRegions = sum(nMapped))
+totalNodeRegions_combNodes$name <- paste("Node", totalNodeRegions_combNodes$Node, sep = "")
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 saveRDS(totalNodeRegions_combNodes, "totalNodeRegions_combNodes.rds")
 

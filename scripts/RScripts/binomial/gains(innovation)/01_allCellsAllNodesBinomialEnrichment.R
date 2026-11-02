@@ -16,6 +16,24 @@ require(stringr)
 setwd("/Users/haileynapier/Work/VertGenLab/Projects/vertCons/data")
 regions <- read.csv("enrichments_forR.csv", header = T)
 
+### OPTIONAL, add Wang 2026 placenta data ----
+wang2026 <- read.csv("wang2026Placenta_gains.txt", sep = "\t")
+wang2026$Cell.Type <- str_remove(wang2026$Cell.Type, "_.*")
+wang2026$Node <- str_remove(wang2026$Node, "node")
+wang2026$Node <- as.integer(wang2026$Node)
+wang2026$Cell.Type <- paste("wang26", wang2026$Cell.Type, sep = "_")
+wang2026 <- complete(wang2026, Cell.Type, Node = -1:17, fill = list(Regions = 0))
+wangRegions <- wang2026 %>%
+  select(Cell.Type, Regions) %>%
+  group_by(Cell.Type) %>%
+  summarize(nRegions = sum(Regions))
+wang2026 <- full_join(wang2026, wangRegions)
+names(wang2026) <- c("CellType", "Node", "Regions", "nRegions")
+wang2026$mappedFraction <- wang2026$Regions/wang2026$nRegions
+regions <- bind_rows(regions, wang2026)
+regions$Regions <- NULL
+### 
+
 ## 0.4 Process data ----
 ## Region counts
 regions$X <- NULL
