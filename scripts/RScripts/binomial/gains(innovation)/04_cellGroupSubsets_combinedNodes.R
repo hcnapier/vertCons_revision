@@ -13,6 +13,7 @@ MYA <- c(20, 30, 45, 75, 85, 87, 95, 100, 160, 180, 320, 350, 415, 430, 560)
 ## 0.3 Source functions ----
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/functions")
 source("subsetAndBinomCellTypeList.R")
+source("getCombSuccess.R")
 
 ## 1.3 Neurons ----
 neuronTypes <- c("excitatoryneuron", "inhibitoryneuron")
@@ -30,7 +31,7 @@ setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScrip
 saveRDS(neuron_binom_combNodes, "neuron_binom_combNodes.rds")
 
 ### Combined subtypes ----
-neuronCombDF <- getCombMapped(nMapLong_combNodes,
+neuronCombDF <- getCombSuccess(nMapLong_combNodes,
                               neuronTypes,
                               "Neurons", 
                               "OR")
@@ -59,7 +60,7 @@ setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScrip
 saveRDS(muscle_binom_combNodes, "muscle_binom_combNodes.rds")
 
 ### Combined subtypes ----
-muscleCombDF <- getCombMapped(nMapLong_combNodes,
+muscleCombDF <- getCombSuccess(nMapLong_combNodes,
                               muscleTypes,
                               "Muscle", 
                               "OR")
@@ -88,7 +89,7 @@ setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScrip
 saveRDS(innateImmune_binom_combNodes, "innateImmune_binom_combNodes.rds")
 
 ### Combined subtypes ----
-innateImmuneCombDF <- getCombMapped(nMapLong_combNodes,
+innateImmuneCombDF <- getCombSuccess(nMapLong_combNodes,
                               immuneTypes,
                               "InnateImmune", 
                               "OR")
