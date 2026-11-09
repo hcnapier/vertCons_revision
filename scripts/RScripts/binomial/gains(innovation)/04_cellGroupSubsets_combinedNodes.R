@@ -141,27 +141,3 @@ wang26_binom_combNodes <- do.call(rbind, wangGroupBinom_combNodes)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 saveRDS(wang26_binom_combNodes, "wang26_binom_combNodes.rds")
 
-
-## 1.8 Combine placenta cell types across datasets ----
-endo <- c("wang26_Endo", "endothelialPlacental")
-endoPlacental <- getCombSuccess(nMapLong_combNodes,
-                                endo,
-                                "endoPlacental", 
-                                "OR")
-macro <- c("wang26_HB", "macrophagePlacental")
-macroPlacental <- getCombSuccess(nMapLong_combNodes,
-                                macro,
-                                "macroPlacental", 
-                                "OR")
-sct <- c("wang26_SCT", "syncitiotrophoblastCytotrophoblast")
-sctPlacental <- getCombSuccess(nMapLong_combNodes,
-                                 sct,
-                                 "sct", 
-                                 "OR")
-evt <- c("wang26_EVT", "endothelialPlacental")
-evtPlacental <- getCombSuccess(nMapLong_combNodes,
-                               evt,
-                               "evt", 
-                               "OR")
-placentaComb <- bind_rows(endoPlacental, macroPlacental, sctPlacental, evtPlacental)
-combPlacentaTypes <- placentaComb$cellType %>% unique()

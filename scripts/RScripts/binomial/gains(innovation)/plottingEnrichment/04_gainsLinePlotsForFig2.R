@@ -4,6 +4,8 @@ require(ggplot2)
 require(wesanderson)
 require(egg)
 require(grid)
+require(ggh4x)
+
 
 ## 0.2 Load data ----
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
@@ -47,15 +49,14 @@ muscle_subtype_enrichPlot <- ggplot(muscleSubset, aes(x = MYA, y = enrich)) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_fill_manual(name = NULL, values = c("95% CI" = "gray70")) +
-  scale_y_continuous(breaks = seq(0, 2, by=1), limits=c(0,2)) + 
   scale_color_discrete(labels = labels) +
   scale_color_identity(guide = "legend",
                        name = "MYA",
                        breaks = legend_df$col,
                        labels = legend_df$MYA) +
-  labs(title = "Regulatory Innovation, Muscle", 
+  labs(title = "Regulatory Gains, Muscle", 
        x = "Million Years Ago (MYA)", 
-       y = "Enrichment", 
+       y = "pCRE Gain Score", 
        shape = paste0("p < ", 0.05)) + 
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16), 
         axis.text.y = element_text(size = 15, face = "bold"), 
@@ -67,7 +68,14 @@ muscle_subtype_enrichPlot <- ggplot(muscleSubset, aes(x = MYA, y = enrich)) +
         legend.position = "none")+ 
   facet_wrap(~cellType, 
              ncol = 1, 
-             labeller = as_labeller(labels)) 
+             labeller = as_labeller(labels), 
+             scales = "free_y") + 
+  facetted_pos_scales(
+    y = list(
+      scale_y_continuous(limits = c(0, 2), breaks = c(0, 1, 2)),
+      scale_y_continuous(limits = c(0.5, 1.5), breaks = c(0.5, 1, 1.5))
+    )
+  )
 muscle_subtype_enrichPlot
 
 ### 2.A.X Sup figure ----
@@ -85,11 +93,11 @@ muscle_suppPlot <- ggplot(muscle_binom_combNodes, aes(x = MYA, y = enrich)) +
   geom_point(aes(shape = sig), size = 3) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
-  scale_y_continuous(breaks = seq(0.75, 1.25, by=0.5), limits=c(0.75,1.25)) + 
+  scale_y_continuous(breaks = seq(0, 2.25, by=0.5), limits=c(0,2.25)) + 
   scale_color_discrete(labels = labels) +
-  labs(title = "Regulatory Innovation, Muscle", 
+  labs(title = "Regulatory Gains, Muscle", 
        x = "Million Years Ago (MYA)", 
-       y = "Enrichment", 
+       y = "pCRE Gain Score", 
        shape = paste0("p < ", 0.05)) + 
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12), 
         legend.position = "none", 
@@ -127,15 +135,15 @@ neuron_subtype_enrichPlot <- ggplot(neuron_binom_combNodes, aes(x = MYA, y = enr
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not significant")) +
   scale_fill_manual(name = NULL, values = c("95% CI" = "gray70")) +
-  scale_y_continuous(breaks = seq(0.5, 1.5, by=0.5), limits=c(0.5,1.5)) + 
+  scale_y_continuous(breaks = seq(0.50, 1.5, by=0.5), limits=c(0.46,1.5)) + 
   scale_color_discrete(labels = labels) +
   scale_color_identity(guide = "legend",
                        name = "MYA",
                        breaks = legend_df$col,
                        labels = legend_df$MYA) +
-  labs(title = "Regulatory Innovation, Neurons", 
+  labs(title = "Regulatory Gains, Neurons", 
        x = "Million Years Ago (MYA)", 
-       y = "Enrichment", 
+       y = "pCRE Gain Score", 
        shape = paste0("p < ", 0.05)) + 
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16), 
         axis.text.y = element_text(size = 15, face = "bold"), 
@@ -184,9 +192,9 @@ innateImmune_subtype_enrichPlot <- ggplot(immuneSubset, aes(x = MYA, y = enrich)
                        name = "MYA",
                        breaks = legend_df$col,
                        labels = legend_df$MYA) +
-  labs(title = "Regulatory Innovation, Innate Immune Cells", 
+  labs(title = "Regulatory Gains, Innate Immune Cells", 
        x = "Million Years Ago (MYA)", 
-       y = "Enrichment", 
+       y = "pCRE Gain Score", 
        shape = paste0("p < ", 0.05)) + 
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16), 
         axis.text.y = element_text(size = 15, face = "bold"), 

@@ -214,3 +214,4 @@ ggplot(wang26_binom_combNodes, aes(x = MYA, y = enrich)) +
   facet_wrap(~cellType, 
              ncol = 2, 
              labeller = as_labeller(labels)) 
+
