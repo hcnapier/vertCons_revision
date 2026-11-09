@@ -23,6 +23,16 @@ wang2026 <- wang2026 %>%
 wang2026$Cell.Type <- str_remove(wang2026$Cell.Type, "_.*")
 wang2026$Node <- str_remove(wang2026$Node, "node")
 wang2026$Node <- as.integer(wang2026$Node)
+wang2026$Cell.Type <- paste("placental", wang2026$Cell.Type, sep = "_")
+# change cell type names to match Domcke dataset
+wang2026 <- wang2026 %>%
+  mutate(Cell.Type = case_when(
+    str_detect(Cell.Type, "Endo") ~ "endothelialPlacental",
+    str_detect(Cell.Type, "HB") ~ "macrophagePlacental",
+    str_detect(Cell.Type, "SCT") ~ "syncitiotrophoblastCytotrophoblast",
+    str_detect(Cell.Type, "EVT") ~ "extravillousTrophoblast",
+    TRUE ~ Cell.Type  # Keeps original value if no match
+  ))
 wang2026$Cell.Type <- paste("wang26", wang2026$Cell.Type, sep = "_")
 wang2026 <- complete(wang2026, Cell.Type, Node = -1:17, fill = list(Regions = 0))
 wangRegions <- wang2026 %>%
