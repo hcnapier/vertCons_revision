@@ -167,6 +167,6 @@ end
 
 cd $birthStatsDir
 cat node*.txt >wang2026Placenta_gains.txt
-gawk -i inplace '!($0 == "Node\tCell Type\tRegions" && seen++)' input.txt
+gawk -i inplace '!($0 == "Node\tCell Type\tRegions" && seen++)' wang2026Placenta_gains.txt 
 
 echo DONE!
