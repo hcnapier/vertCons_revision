@@ -169,4 +169,116 @@ cd $birthStatsDir
 cat node*.txt >wang2026Placenta_gains.txt
 gawk -i inplace '!($0 == "Node\tCell Type\tRegions" && seen++)' wang2026Placenta_gains.txt 
 
+echo DONE CALCULATING BIRTH STATS
+
+
+# ---------------------------------------------------------------------------
+# 6.0 Calculate death node
+## From /hpc/group/vertgenlab/christi/vertCons/60way/scriptPipeline/12.calculateElementDeathAncestors.csh
+# ---------------------------------------------------------------------------
+echo CALCULATING DEATH NODE...
+
+set deathNodeDir      = $workDir/deathNode/$db
+set intervalOverlap   = $HOME/go/bin/intervalOverlap
+set alignmentDir      = /work/hcn4/260630_vertCons_wd/$db.wholeGenomeAlignments
+set coverage          = $workDir/coverageCalls.$db
+set deathSpeciesNodes = /hpc/group/vertgenlab/christi/vertCons/60way/speciesNodeFiles/$db.speciesNode.list
+set maxNode           = 17
+
+mkdir -p $deathNodeDir
+rm -f $deathNodeDir/*.bed              # clear output from a previous run
+
+# Add a column with the birth node to each node file
+foreach f ($coverage/node*.bed)
+    set node = $f:t:r
+    if ("$node" =~ *.labeled) continue  # skip already-labeled files
+    echo $node
+    awk -v node="$node" 'BEGIN{OFS="\t"} {print $0, node}' $f > $f:r.labeled.bed
+end
+
+# For each birth node (oldest to youngest), find elements with no alignment
+# in each species that branched off after that node
+foreach i (`seq $maxNode -1 0`)
+    set nodeFile = $coverage/node$i.labeled.bed
+    if (! -e $nodeFile) continue        # no elements born at this node
+
+    foreach sN (`cat $deathSpeciesNodes`)
+        set species = $sN:r
+        set node    = $sN:e
+        if ("$species" == "$db") continue
+        if ($node >= $i) continue
+
+        echo "node: $node  i: $i  species: $species"
+        $intervalOverlap -nonOverlap $alignmentDir/$db.$species.bed $nodeFile \
+            $deathNodeDir/node$i.$sN.dead.nonOverlap.bed
+    end
+end
+
+# Add columns with the death node and species
+foreach f ($deathNodeDir/node*.*.*.dead.nonOverlap.bed)
+    set death   = $f:t:r:r:r:e
+    set species = $f:t:r:r:r:r:e
+    set prefix  = $f:r:r
+    echo $death $species
+
+    awk -v death="node$death" -v species="$species" 'BEGIN{OFS="\t"} {print $0, death, species}' $f > $prefix.allLabels.bed
+end
+
+echo DONE CALCULATING DEATH NODE
+
+
+# ---------------------------------------------------------------------------
+# 7.0 Calculate death stats
+## From /hpc/group/vertgenlab/christi/vertCons/60way/scriptPipeline/13.deathStats.csh
+# ---------------------------------------------------------------------------
+echo CALCULATING DEATH STATS...
+
+set deathOut = $workDir/allDeathStats.updated.tsv
+
+# Combine each species' dead elements across birth nodes
+foreach sN (`cat $deathSpeciesNodes`)
+    set s = $sN:r
+    if ("$s" == "$db") continue
+
+    set deadFiles = ($deathNodeDir/node*.$s.*.dead.allLabels.bed)
+    if (! -e "$deadFiles[1]") then
+        echo "No death files for $s"
+        continue
+    endif
+
+    cat $deadFiles > $deathNodeDir/$s.dead.bed
+    # bedMerge needs plain 4-column BED (the label columns would break it)
+    cut -f1-4 $deathNodeDir/$s.dead.bed > $deathNodeDir/$s.dead.4col.bed
+    $bedMerge -keepAllNames $deathNodeDir/$s.dead.4col.bed $deathNodeDir/$s.dead.merged.bed
+end
+
+# For each cell type and species: elements born at or before the species'
+# branch point, and how many of those are dead in that species
+rm -f $deathOut
+
+foreach f ($peakFiles)
+    set name = $f:t:r:r
+
+    foreach sN (`cat $deathSpeciesNodes`)
+        set species = $sN:r
+        set node    = $sN:e
+        if ("$species" == "petMar3" || "$species" == "$db") continue
+
+        set sum = 0
+        foreach i (`seq $maxNode -1 $node`)
+            if (-e $coverage/node$i.bed) then
+                set tmp = `grep -c -- $name $coverage/node$i.bed`
+                @ sum += $tmp
+            endif
+        end
+
+        set dead = 0
+        if (-e $deathNodeDir/$species.dead.bed) then
+            set dead = `grep -c -- $name $deathNodeDir/$species.dead.bed`
+        endif
+
+        printf "%s\t%s\t%s\t%s\n" $name $species $sum $dead >> $deathOut
+    end
+end
+
 echo DONE!
