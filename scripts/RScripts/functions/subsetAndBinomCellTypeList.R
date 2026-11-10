@@ -1,6 +1,7 @@
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/functions")
 source("getCombSuccess.R")
 source("subtypeBinomTest.R")
+source("lossBinomTest.R")
 subsetAndBinomCellTypeList <- function(cellTypeList, stageList = NULL, fullDF, totalNodeRegions, totalCellTypeRegions = NULL, totalNodeLosses = NULL, nodeNames, MYA = NA, groupName, logic = "AND", type = "gain"){
   mapsList <- list()
     for(cellType in cellTypeList){
