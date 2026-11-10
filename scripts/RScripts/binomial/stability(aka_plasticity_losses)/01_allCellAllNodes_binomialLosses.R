@@ -21,6 +21,22 @@ speciesLosses$X.2 <- NULL
 speciesLosses$X.3 <- NULL 
 speciesLosses$X <- NULL
 MYA_losses <- c(10, 15, 20, 30, 45, 75, 85, 87, 95, 100, 160, 180, 320, 350, 415, 430)
+wangLosses <- read.delim("wang2026Placenta_speciesLosses.tsv", sep = "\t", header = F)
+names(wangLosses) <- names(speciesLosses)
+wangLosses <- wangLosses %>% 
+  filter(str_detect(CellType, "400bp"))
+wangLosses$CellType <- str_remove(wangLosses$CellType, "_.*")
+wangLosses$CellType <- paste("placental", wangLosses$CellType, sep = "_")
+wangLosses <- wangLosses %>%
+  mutate(CellType = case_when(
+    str_detect(CellType, "Endo") ~ "endothelialPlacental",
+    str_detect(CellType, "HB") ~ "macrophagePlacental",
+    str_detect(CellType, "SCT") ~ "syncitiotrophoblastCytotrophoblast",
+    str_detect(CellType, "EVT") ~ "extravillousTrophoblast",
+    TRUE ~ CellType  # Keeps original value if no match
+  ))
+wangLosses$CellType <- paste("wang26", wangLosses$CellType, sep = "_")
+speciesLosses <- bind_rows(wangLosses, speciesLosses)
 
 # 0.3 Source functions ----
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/functions")
