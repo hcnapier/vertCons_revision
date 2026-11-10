@@ -5,7 +5,8 @@ Workflow:
   1. (Assumes you've already run UCE on each dataset, producing .h5ad files
      with UCE embeddings in .obsm["X_uce"]. See the "RUN UCE" section below
      for the commands to do that if you haven't yet.)
-  2. Load and merge the embedded datasets.
+  2. Load and merge the embedded datasets, and map each specific cell type
+     to a broad class (BROAD_CELL_TYPES).
   3. Compute cell-type centroid distances by species (pooling all datasets
      from the same species together).
   4. Compute a same-type-vs-different-type separation score.
@@ -13,9 +14,23 @@ Workflow:
      cell-type separation from study/technology batch effects, using the
      subset of datasets that share a single study (see
      study_controlled_diagnostic()).
-  6. Save a distance heatmap and a UMAP colored by dataset / cell type.
+  6. Optionally write within-cell-type pairwise cell-cell distances, at the
+     specific and/or broad cell type level (PAIRWISE_LEVELS).
+  7. Save distance heatmaps (specific or broad cell types, optionally
+     restricted to a selected subset; HEATMAP_LEVEL / HEATMAP_CELL_TYPES)
+     and a UMAP colored by study / cell type / species.
 
 python uce_celltype_distance_comparison.py
+
+Heatmap / pairwise options can also be set on the command line, e.g.:
+  # broad cell types, only trophoblast and immune
+  python uce_celltype_distance_comparison.py --heatmap-level broad \
+      --heatmap-cell-types trophoblast immune
+  # specific cell types, only a few trophoblast subtypes
+  python uce_celltype_distance_comparison.py --heatmap-level specific \
+      --heatmap-cell-types ctb evt stb
+  # write both pairwise files
+  python uce_celltype_distance_comparison.py --pairwise-levels specific broad
 """
 import gzip
 import os
@@ -143,6 +158,17 @@ CELL_TYPE_ONTOLOGY_ORDER = [
     "neu"
 ]
 
+# --- Cell type relabeling ---
+# Merge or rename cell type labels right after loading, before anything else
+# (distances, heatmaps, pairwise files, UMAP). Keys are the old labels and
+# values the new ones, both lowercased as in cell_type_std. The original label
+# is kept in .obs["cell_type_original"]. Set RELABEL_CELL_TYPES = False (or
+# pass --no-relabel) to use the labels as they are.
+RELABEL_CELL_TYPES = True
+CELL_TYPE_RELABEL = {
+    "invasive": "evt",
+}
+
 # Broad class for each cell_type_std label (lowercased, as in CELL_TYPE_ONTOLOGY_ORDER).
 # Labels not listed here become "unassigned" and are skipped (with a warning).
 BROAD_CELL_TYPES = {
@@ -156,13 +182,40 @@ BROAD_CELL_TYPES = {
     "endo": "endothelial",
     # immune
     "leu": "immune", "bcell": "immune", "tcell": "immune", "nkcells": "immune",
-    "mono": "immune", "mac": "mac", "dc": "immune", "neu": "immune",
+    "mono": "immune", "mac": "macrophage", "dc": "immune", "neu": "immune",
 }
 
-# Pairwise cell-cell distance export (one file per broad cell type).
-PAIRWISE_MAX_CELLS_PER_CELL_TYPE = 5000  # None = all cells (rows grow as n^2!)
+# Order broad cell types appear in broad-level heatmaps. None = derived
+# automatically from CELL_TYPE_ONTOLOGY_ORDER + BROAD_CELL_TYPES (each broad
+# class placed where its first specific type appears). Set a list to override.
+BROAD_CELL_TYPE_ORDER = None
+
+# --- Heatmap options ---
+# Which cell type level the centroid heatmaps are drawn at:
+#   "specific": one row/column per species | specific cell type (cell_type_std)
+#   "broad":    one row/column per species | broad cell type (BROAD_CELL_TYPES),
+#               i.e. centroids are averaged over all cells of that broad class.
+HEATMAP_LEVEL = "broad"
+
+# Optional subset of cell types to show in the heatmaps. Names must be at the
+# HEATMAP_LEVEL level (specific labels like ["ctb", "evt", "stb"] when
+# HEATMAP_LEVEL = "specific"; broad labels like ["trophoblast", "immune"]
+# when HEATMAP_LEVEL = "broad"). Matching is case-insensitive. When set, the
+# cell types appear in the heatmaps in the order you list them here.
+# None = show all cell types.
+HEATMAP_CELL_TYPES = ["trophoblast", "macrophage", "endothelial"]
+
+# --- Pairwise cell-cell distance export ---
 WRITE_PAIRWISE_DISTANCES = True
-PAIRWISE_MAX_CELLS_PER_BROAD_TYPE = 5000  # None = all cells (rows grow as n^2!)
+# Which pairwise files to write (either or both):
+#   "specific" -> {OUT_PREFIX}_pairwise.csv(.gz): pairs of cells sharing the
+#                 same specific cell type.
+#   "broad"    -> {OUT_PREFIX}_pairwise_broad.csv(.gz): pairs of cells sharing
+#                 the same broad cell type (they may differ in specific type;
+#                 both specific types are recorded as cell_type1 / cell_type2).
+PAIRWISE_LEVELS = ["broad"]
+PAIRWISE_MAX_CELLS_PER_CELL_TYPE = 5000   # cap for "specific" file; None = all cells (rows grow as n^2!)
+PAIRWISE_MAX_CELLS_PER_BROAD_TYPE = 5000  # cap for "broad" file; None = all cells (rows grow as n^2!)
 PAIRWISE_COMPRESS = True                  # write .csv.gz
 PAIRWISE_CHUNK_ROWS = 500                 # rows of the distance matrix held in memory at once
 PAIRWISE_SEED = 0
@@ -225,7 +278,21 @@ USE_COMBINED_BATCH_KEY = False
 # If True, mean-center each species' embeddings (subtract that species'
 # overall mean X_uce vector from every one of its cells) before computing
 # distances, UMAP, and the separation score.
-CENTER_BY_SPECIES = True
+CENTER_BY_SPECIES = False
+
+# If True, mean-center each study's embeddings (subtract that study's overall
+# mean X_uce vector from every one of its cells), the same way as
+# CENTER_BY_SPECIES but grouped by .obs["study"]. This removes a global
+# per-study (batch) shift while keeping differences between species profiled
+# within the same study (e.g. the 4 Tan species).
+# Both can be on: study centering is applied first, then species centering.
+# NOTE: when every species comes from a single study (as in the current
+# config), species centering alone already removes the study shift, so
+# study + species gives the same result as species alone; the script prints
+# a note when that happens. For a study-only correction, set
+# CENTER_BY_SPECIES = False and CENTER_BY_STUDY = True.
+# Can also be set per run with --center {none,species,study,both}.
+CENTER_BY_STUDY = True
 
 # --- Study-controlled diagnostic ---
 # Which .obs["study"] value to use as the "study-controlled" subset for
@@ -238,14 +305,23 @@ CENTER_BY_SPECIES = True
 DIAGNOSTIC_STUDY = "Tan"
 
 # Where to save outputs
-OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/261005_center"
+OUT_PREFIX = "/work/hcn4/260630_vertCons_wd/scTrx/uce_distances/261009_studyCenter"
 
 # =============================================================================
 
-def load_and_merge(dataset_paths, cell_type_cols, species_map, study_map, technology_map):
+# .obs column holding each cell type level
+LEVEL_COLS = {"specific": "cell_type_std", "broad": "broad_cell_type"}
+
+
+def load_and_merge(dataset_paths, cell_type_cols, species_map, study_map, technology_map,
+                   relabel=None):
     """Load each embedded dataset, standardize cell type column name, tag
     dataset origin, species, study, and technology, and concatenate into
-    one AnnData."""
+    one AnnData. relabel: optional {old label: new label} dict applied to
+    cell_type_std (lowercased); the pre-relabel label is kept in
+    .obs['cell_type_original']."""
+    relabel = {str(k).strip().lower(): str(v).strip().lower()
+               for k, v in (relabel or {}).items()}
     adatas = []
     for name, path in dataset_paths.items():
         a = sc.read_h5ad(path)
@@ -256,18 +332,28 @@ def load_and_merge(dataset_paths, cell_type_cols, species_map, study_map, techno
         if ct_col not in a.obs:
             raise ValueError(f"{name}: column '{ct_col}' not found in .obs. "
                               f"Available columns: {list(a.obs.columns)}")
-        a.obs["cell_type_std"] = a.obs[ct_col].astype(str).str.strip().str.lower()
+        a.obs["cell_type_original"] = a.obs[ct_col].astype(str).str.strip().str.lower()
+        a.obs["cell_type_std"] = a.obs["cell_type_original"].replace(relabel)
+        n_changed = int((a.obs["cell_type_std"] != a.obs["cell_type_original"]).sum())
+        if n_changed:
+            moved = (a.obs.loc[a.obs["cell_type_std"] != a.obs["cell_type_original"],
+                               "cell_type_original"].value_counts())
+            print(f"{name}: relabeled {n_changed} cell(s): "
+                  + ", ".join(f"{old} -> {relabel[old]} ({n})" for old, n in moved.items()))
         a.obs["dataset"] = name
         a.obs["species"] = species_map.get(name, "unknown")
         a.obs["study"] = study_map.get(name, "unknown")
         a.obs["technology"] = technology_map.get(name, "unknown")
         # keep only what we need to avoid var mismatch issues on concat
-        a = ad.AnnData(X=a.X, obs=a.obs[["cell_type_std", "dataset", "species",
-                                          "study", "technology"]].copy(),
+        a = ad.AnnData(X=a.X, obs=a.obs[["cell_type_std", "cell_type_original", "dataset",
+                                          "species", "study", "technology"]].copy(),
                         obsm={"X_uce": a.obsm["X_uce"]})
         adatas.append(a)
 
     combined = ad.concat(adatas, join="outer", label="batch", index_unique="-")
+    unused = sorted(set(relabel) - set(combined.obs["cell_type_original"].astype(str)))
+    if unused:
+        print(f"NOTE: CELL_TYPE_RELABEL entries {unused} matched no cells.")
     combined.obs["group"] = (combined.obs["species"].astype(str) + " | " +
                               combined.obs["cell_type_std"].astype(str))
     n_species = combined.obs["species"].nunique()
@@ -279,26 +365,60 @@ def load_and_merge(dataset_paths, cell_type_cols, species_map, study_map, techno
     return combined
 
 
-def center_by_species(combined):
+def center_by_group(combined, key, use_rep="X_uce", out_rep=None):
     """
-    Subtract each species' mean X_uce vector from every one of its cells.
-    Stores the result in .obsm["X_uce_centered"] and leaves the original
-    .obsm["X_uce"] untouched, so you can compare centered vs. uncentered
-    results without re-loading anything.
+    Subtract each group's mean embedding (groups defined by .obs[key], e.g.
+    "species" or "study") from every one of its cells. Reads .obsm[use_rep]
+    and stores the result in .obsm[out_rep], leaving the input untouched so
+    centered vs. uncentered results can be compared without re-loading.
     """
-    X = combined.obsm["X_uce"]
-    species = combined.obs["species"].values
+    if key not in combined.obs:
+        raise ValueError(f"Can't center by '{key}': column not in .obs.")
+    out_rep = out_rep or f"{use_rep}_{key}_centered"
+    X = np.asarray(combined.obsm[use_rep])
+    labels = combined.obs[key].astype(str).to_numpy()
     X_centered = np.empty_like(X)
 
-    for sp in np.unique(species):
-        mask = species == sp
-        sp_mean = X[mask].mean(axis=0, keepdims=True)
-        X_centered[mask] = X[mask] - sp_mean
+    for g in np.unique(labels):
+        mask = labels == g
+        X_centered[mask] = X[mask] - X[mask].mean(axis=0, keepdims=True)
 
-    combined.obsm["X_uce_centered"] = X_centered
-    print("Per-species centering applied: subtracted each species' mean "
-          "embedding from its cells (stored in .obsm['X_uce_centered']).")
+    combined.obsm[out_rep] = X_centered
+    print(f"Per-{key} centering applied: subtracted each {key}'s mean embedding "
+          f"({len(np.unique(labels))} groups) from its cells, {use_rep} -> "
+          f".obsm['{out_rep}'].")
     return combined
+
+
+def center_by_species(combined):
+    """Per-species centering of X_uce into .obsm["X_uce_centered"] (kept for
+    backward compatibility; see center_by_group)."""
+    return center_by_group(combined, "species", use_rep="X_uce", out_rep="X_uce_centered")
+
+
+def center_by_study(combined):
+    """Per-study centering of X_uce into .obsm["X_uce_study_centered"]."""
+    return center_by_group(combined, "study", use_rep="X_uce", out_rep="X_uce_study_centered")
+
+
+def apply_centering(combined, by_study, by_species):
+    """Apply study and/or species centering (study first). Returns
+    (combined, rep name, title suffix). With neither, returns X_uce unchanged."""
+    if by_study and by_species:
+        n_studies_per_species = combined.obs.groupby("species", observed=True)["study"].nunique()
+        if (n_studies_per_species <= 1).all():
+            print("NOTE: every species comes from a single study, so centering by study and "
+                  "then species gives the same embedding as centering by species alone. Use "
+                  "--center study (or CENTER_BY_SPECIES = False) for a study-only correction.")
+        combined = center_by_study(combined)
+        combined = center_by_group(combined, "species", use_rep="X_uce_study_centered",
+                                   out_rep="X_uce_study_species_centered")
+        return combined, "X_uce_study_species_centered", " (study- and species-centered)"
+    if by_study:
+        return center_by_study(combined), "X_uce_study_centered", " (study-centered)"
+    if by_species:
+        return center_by_species(combined), "X_uce_centered", " (species-centered)"
+    return combined, "X_uce", ""
 
 
 def harmony_convergence(ho, max_iter, epsilon):
@@ -533,48 +653,108 @@ def _make_rank_lookup(order_list, label_for_warning):
     values sort after all listed ones, alphabetically among themselves.
     """
     ranks = {val: i for i, val in enumerate(order_list)}
+    warned = set()
 
     def rank(value):
         if value not in ranks:
-            print(f"WARNING: '{value}' not found in your {label_for_warning} "
-                  f"ordering list — placing it at the end. Add it to the "
-                  f"CONFIG list if you want explicit control over its position.")
+            if value not in warned:
+                print(f"WARNING: '{value}' not found in your {label_for_warning} "
+                      f"ordering list — placing it at the end. Add it to the "
+                      f"CONFIG list if you want explicit control over its position.")
+                warned.add(value)
             return (len(order_list), value)
         return (ranks[value], "")
 
     return rank
 
 
+def broad_cell_type_order(broad_map, specific_order, explicit_order=None):
+    """Order of broad cell types for heatmaps: explicit_order if given, else each
+    broad class in the position of its first specific type in specific_order."""
+    if explicit_order is not None:
+        return list(explicit_order)
+    return list(dict.fromkeys(broad_map[c] for c in specific_order if c in broad_map))
+
+
+def resolve_heatmap_cell_types(combined, level, selected):
+    """Validate a user selection of cell types for the heatmap against the labels
+    present at `level` ("specific" or "broad"). Returns the cleaned list (in the
+    order given, duplicates removed), or None if nothing was selected."""
+    if not selected:
+        return None
+    if level not in LEVEL_COLS:
+        raise ValueError(f"HEATMAP_LEVEL must be one of {list(LEVEL_COLS)}, got '{level}'.")
+    col = LEVEL_COLS[level]
+    present = set(combined.obs[col].astype(str).unique())
+    sel = list(dict.fromkeys(str(s).strip().lower() for s in selected))
+    missing = [s for s in sel if s not in present]
+    if missing:
+        other_level = "broad" if level == "specific" else "specific"
+        other_present = set(combined.obs[LEVEL_COLS[other_level]].astype(str).unique())
+        wrong_level = [s for s in missing if s in other_present]
+        print(f"WARNING: selected cell type(s) {missing} not found at the '{level}' level "
+              f"and will be ignored. Available {level} cell types: {sorted(present)}")
+        if wrong_level:
+            print(f"NOTE: {wrong_level} are {other_level} cell types — set HEATMAP_LEVEL = "
+                  f"'{other_level}' (or --heatmap-level {other_level}) to use them.")
+    keep = [s for s in sel if s in present]
+    if not keep:
+        raise ValueError(f"None of the selected heatmap cell types {sel} exist at the "
+                         f"'{level}' level. Available: {sorted(present)}")
+    print(f"Heatmap restricted to {len(keep)} {level} cell type(s): {keep}")
+    return keep
+
+
 def centroid_distance_matrix(combined, metric="cosine", use_rep="X_uce",
-                              species_order=None):
+                              species_order=None, cell_type_level="specific",
+                              cell_types=None, cell_type_order=None):
     """Compute pairwise distances between (species, cell_type) centroids.
 
     Note: if a species has multiple datasets, all their cells are pooled
     together before averaging — i.e. this collapses dataset as a grouping
-    dimension entirely. If you want per-dataset centroids too, use the
-    "dataset" column instead of "species" when building combined.obs["group"]
-    in load_and_merge().
+    dimension entirely.
 
-    use_rep: which .obsm key to compute distances from — "X_uce" (raw) or
-    "X_uce_centered" (after center_by_species()).
+    use_rep: which .obsm key to compute distances from — "X_uce" (raw),
+    "X_uce_centered" (after center_by_species()) or "X_uce_harmony".
+
+    cell_type_level: "specific" (cell_type_std) or "broad" (broad_cell_type).
+    At the broad level, cells with broad_cell_type "unassigned" are dropped.
+
+    cell_types: optional list of cell types (at cell_type_level) to keep;
+    centroids for all other cell types are left out. None keeps all.
 
     species_order: optional list giving the desired species order (e.g.
     SPECIES_PHYLO_ORDER). Species are ordered primarily by this list,
-    secondarily by cell type name. If None, falls back to alphabetical.
+    secondarily by cell type (cell_type_order, else alphabetical). If None,
+    species fall back to alphabetical.
     """
-    X = combined.obsm[use_rep]
-    groups = combined.obs["group"].values
-    centroids = pd.DataFrame(X, index=groups).groupby(level=0).mean()
+    col = LEVEL_COLS[cell_type_level]
+    obs = combined.obs
+    ct = obs[col].astype(str).to_numpy()
+    mask = np.ones(combined.n_obs, dtype=bool)
+    if cell_type_level == "broad":
+        mask &= ct != "unassigned"
+    if cell_types is not None:
+        mask &= np.isin(ct, cell_types)
+    if not mask.any():
+        raise ValueError("No cells left for the centroid distance matrix after filtering.")
 
-    if species_order is not None:
-        species_rank = _make_rank_lookup(species_order, "SPECIES_PHYLO_ORDER")
+    labels = (obs["species"].astype(str).to_numpy() + " | " + ct)[mask]
+    X = np.asarray(combined.obsm[use_rep])[mask]
+    centroids = pd.DataFrame(X, index=labels).groupby(level=0).mean()
 
-        def sort_key(label):
-            species, cell_type = label.split(" | ", 1)
-            return (species_rank(species), cell_type)
+    species_rank = (_make_rank_lookup(species_order, "SPECIES_PHYLO_ORDER")
+                    if species_order is not None else None)
+    cell_type_rank = (_make_rank_lookup(cell_type_order, "cell type")
+                      if cell_type_order is not None else None)
 
-        ordered_labels = sorted(centroids.index, key=sort_key)
-        centroids = centroids.loc[ordered_labels]
+    def sort_key(label):
+        species, cell_type = label.split(" | ", 1)
+        sp_key = species_rank(species) if species_rank else (0, species)
+        ct_key = cell_type_rank(cell_type) if cell_type_rank else (0, cell_type)
+        return (sp_key, ct_key)
+
+    centroids = centroids.loc[sorted(centroids.index, key=sort_key)]
 
     dist = squareform(pdist(centroids.values, metric=metric))
     dist_df = pd.DataFrame(dist, index=centroids.index, columns=centroids.index)
@@ -685,14 +865,16 @@ def study_controlled_diagnostic(combined, study_name=None, metric="cosine",
         study only has one species (nothing to isolate).
     reps_to_compare: list of .obsm keys to compute the diagnostic for. If
         None, uses every rep in combined.obsm that is one of
-        ["X_uce", "X_uce_centered", "X_uce_harmony"] and is actually
+        ["X_uce", "X_uce_centered", "X_uce_study_centered",
+                              "X_uce_study_species_centered", "X_uce_harmony"] and is actually
         present, in that order.
 
     Returns a pandas DataFrame with one row per rep, comparing the
     full-dataset ratio to the study-controlled ratio.
     """
     if reps_to_compare is None:
-        reps_to_compare = [r for r in ["X_uce", "X_uce_centered", "X_uce_harmony"]
+        reps_to_compare = [r for r in ["X_uce", "X_uce_centered", "X_uce_study_centered",
+                              "X_uce_study_species_centered", "X_uce_harmony"]
                             if r in combined.obsm]
 
     if study_name is None:
@@ -802,20 +984,21 @@ def reorder_by_celltype(dist_df, cell_type_order=None, species_order=None):
     the "species | cell_type" format produced by centroid_distance_matrix.
 
     cell_type_order: optional list giving the desired cell type order (e.g.
-    CELL_TYPE_ONTOLOGY_ORDER). If None, falls back to alphabetical.
+    CELL_TYPE_ONTOLOGY_ORDER, or the broad order for broad-level matrices).
+    If None, falls back to alphabetical.
     species_order: optional list giving the desired species order WITHIN
     each cell type block (e.g. SPECIES_PHYLO_ORDER). If None, falls back
     to alphabetical.
     """
-    cell_type_rank = (_make_rank_lookup(cell_type_order, "CELL_TYPE_ONTOLOGY_ORDER")
+    cell_type_rank = (_make_rank_lookup(cell_type_order, "cell type")
                        if cell_type_order is not None else None)
     species_rank = (_make_rank_lookup(species_order, "SPECIES_PHYLO_ORDER")
                     if species_order is not None else None)
 
     def sort_key(label):
         species, cell_type = label.split(" | ", 1)
-        ct_key = cell_type_rank(cell_type) if cell_type_rank else cell_type
-        sp_key = species_rank(species) if species_rank else species
+        ct_key = cell_type_rank(cell_type) if cell_type_rank else (0, cell_type)
+        sp_key = species_rank(species) if species_rank else (0, species)
         return (ct_key, sp_key)
 
     new_order = sorted(dist_df.index, key=sort_key)
@@ -857,19 +1040,37 @@ def parse_args():
     p.add_argument("--harmony-obs-names", default=None,
                    help="Cell-ID file for --harmony-embedding (default: obs_names.txt in the "
                         "same folder)")
+    p.add_argument("--heatmap-level", choices=sorted(LEVEL_COLS), default=HEATMAP_LEVEL,
+                   help="Draw heatmaps at the 'specific' or 'broad' cell type level "
+                        f"(default: HEATMAP_LEVEL = '{HEATMAP_LEVEL}')")
+    p.add_argument("--heatmap-cell-types", nargs="+", default=HEATMAP_CELL_TYPES,
+                   metavar="CELL_TYPE",
+                   help="Only show these cell types in the heatmaps (names at the "
+                        "--heatmap-level level; shown in the order given). "
+                        "Default: HEATMAP_CELL_TYPES (None = all)")
+    p.add_argument("--center", choices=["none", "species", "study", "both"], default=None,
+                   help="Mean-centering to apply (overrides CENTER_BY_SPECIES / "
+                        "CENTER_BY_STUDY; 'both' = study first, then species)")
+    p.add_argument("--no-relabel", action="store_true",
+                   help="Skip CELL_TYPE_RELABEL (e.g. keep 'invasive' separate from 'evt')")
+    p.add_argument("--pairwise-levels", nargs="+", default=PAIRWISE_LEVELS,
+                   choices=sorted(LEVEL_COLS) + ["none"],
+                   help="Which pairwise distance files to write: 'specific', 'broad', both, "
+                        f"or 'none' (default: PAIRWISE_LEVELS = {PAIRWISE_LEVELS})")
     return p.parse_args()
 
 
 def add_broad_cell_type(combined, broad_map):
     """Map cell_type_std to a broad class in .obs['broad_cell_type'].
-    Fine types missing from broad_map become 'unassigned' (reported, then skipped)."""
+    Fine types missing from broad_map become 'unassigned' (reported, then skipped
+    in broad-level heatmaps and the broad pairwise file)."""
     combined.obs["broad_cell_type"] = (combined.obs["cell_type_std"].astype(str)
                                        .map(broad_map).fillna("unassigned"))
     unmapped = combined.obs.loc[combined.obs["broad_cell_type"] == "unassigned",
                                 "cell_type_std"].value_counts()
     if len(unmapped):
         print(f"WARNING: {len(unmapped)} cell type(s) have no entry in BROAD_CELL_TYPES and "
-              f"will be skipped in the pairwise output:\n{unmapped.to_string()}")
+              f"will be skipped at the broad level:\n{unmapped.to_string()}")
     print("Cells per broad cell type:\n"
           + combined.obs["broad_cell_type"].value_counts().to_string())
     return combined
@@ -892,62 +1093,98 @@ def _sample_evenly_by_species(obs_sub, max_cells, rng):
 
 
 def write_pairwise_distances_by_cell_type(combined, use_rep, out_path, broad_map,
-                                          group_col="cell_type_std", metric="cosine",
+                                          level="specific", metric="cosine",
                                           max_cells=5000, chunk_rows=500, seed=0):
-    """Write every unique within-cell-type cell pair (i < j) for all cell types into
-    ONE file, with columns cellID1, cellID2, species1, species2, cell_type,
-    broad_cell_type, distance. Distances are computed in .obsm[use_rep]. Cells are
-    capped at max_cells per cell type (sampled evenly across species);
-    max_cells=None keeps all cells. out_path ending in .gz is gzip-compressed."""
+    """Write every unique within-cell-type cell pair (i < j) into ONE file.
+
+    level="specific": pairs share the same specific cell type (cell_type_std).
+        Columns: cellID1, cellID2, species1, species2, cell_type,
+        broad_cell_type, distance.
+    level="broad": pairs share the same broad cell type (broad_cell_type), so
+        the two cells may have different specific types. Columns: cellID1,
+        cellID2, species1, species2, cell_type1, cell_type2, broad_cell_type,
+        distance. Cells with broad_cell_type 'unassigned' are skipped.
+
+    Distances are computed in .obsm[use_rep]. Cells are capped at max_cells per
+    group (sampled evenly across species); max_cells=None keeps all cells.
+    out_path ending in .gz is gzip-compressed. A per-group summary is written
+    next to it as <out_path stem>_summary.csv."""
+    if level not in LEVEL_COLS:
+        raise ValueError(f"level must be one of {list(LEVEL_COLS)}, got '{level}'.")
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     rng = np.random.default_rng(seed)
     X_all = np.asarray(combined.obsm[use_rep])
     obs = combined.obs
+    group_col = LEVEL_COLS[level]
     groups = obs[group_col].astype(str)
+    fine_all = obs["cell_type_std"].astype(str).to_numpy()
 
-    unmapped = sorted(set(groups.unique()) - set(broad_map))
-    if unmapped:
-        print(f"WARNING: no BROAD_CELL_TYPES entry for {unmapped}; their rows get "
-              f"broad_cell_type='unassigned'.")
+    if level == "specific":
+        unmapped = sorted(set(groups.unique()) - set(broad_map))
+        if unmapped:
+            print(f"WARNING: no BROAD_CELL_TYPES entry for {unmapped}; their rows get "
+                  f"broad_cell_type='unassigned'.")
+        header = "cellID1,cellID2,species1,species2,cell_type,broad_cell_type,distance\n"
+        skip = {"nan", ""}
+    else:
+        header = ("cellID1,cellID2,species1,species2,cell_type1,cell_type2,"
+                  "broad_cell_type,distance\n")
+        skip = {"nan", "", "unassigned"}
 
+    print(f"\n--- Pairwise distances ({level} cell types) -> {out_path} ---")
     opener = gzip.open(out_path, "wt") if out_path.endswith(".gz") else open(out_path, "w")
     summary = []
     with opener as fh:
-        fh.write("cellID1,cellID2,species1,species2,cell_type,broad_cell_type,distance\n")
+        fh.write(header)
         for ct in sorted(groups.unique()):
-            if ct in ("nan", ""):
+            if ct in skip:
                 continue
             pos = np.flatnonzero((groups == ct).to_numpy())
             keep = _sample_evenly_by_species(obs.iloc[pos], max_cells, rng)
             pos = pos[keep]
             n = len(pos)
             if n < 2:
-                print(f"Skipping cell type '{ct}': fewer than 2 cells.")
+                print(f"Skipping {level} cell type '{ct}': fewer than 2 cells.")
                 continue
             n_pairs = n * (n - 1) // 2
-            broad = broad_map.get(ct, "unassigned")
+            broad = broad_map.get(ct, "unassigned") if level == "specific" else ct
             ids = obs.index.to_numpy()[pos]
             species = obs["species"].astype(str).to_numpy()[pos]
+            fine = fine_all[pos]
             n_sp = len(set(species))
             if n_sp < 2:
                 print(f"NOTE: '{ct}' is found in only one species ({species[0]}); "
                       f"it contributes no cross-species pairs.")
             X = X_all[pos]
-            print(f"'{ct}' ({broad}): {n} cells ({n_sp} species) -> {n_pairs:,} pairs")
+            if level == "specific":
+                print(f"'{ct}' ({broad}): {n} cells ({n_sp} species) -> {n_pairs:,} pairs")
+            else:
+                print(f"'{ct}': {n} cells ({n_sp} species, {len(set(fine))} specific types) "
+                      f"-> {n_pairs:,} pairs")
             for start in range(0, n - 1, chunk_rows):
                 stop = min(start + chunk_rows, n - 1)
                 D = pairwise_distances(X[start:stop], X[start:], metric=metric)
                 # keep only j > i within the global index (upper triangle)
                 r, c = np.nonzero(np.arange(start, n)[None, :] > np.arange(start, stop)[:, None])
                 i, j = r + start, c + start
-                pd.DataFrame({"cellID1": ids[i], "cellID2": ids[j],
-                              "species1": species[i], "species2": species[j],
-                              "cell_type": ct, "broad_cell_type": broad,
-                              "distance": D[r, c]}).to_csv(
-                    fh, header=False, index=False, float_format="%.6g")
-            summary.append({"cell_type": ct, "broad_cell_type": broad, "n_cells": n,
-                            "n_pairs": n_pairs, "n_species": n_sp,
-                            "cells_per_species": pd.Series(species).value_counts().to_dict()})
+                cols = {"cellID1": ids[i], "cellID2": ids[j],
+                        "species1": species[i], "species2": species[j]}
+                if level == "specific":
+                    cols["cell_type"] = ct
+                else:
+                    cols["cell_type1"] = fine[i]
+                    cols["cell_type2"] = fine[j]
+                cols["broad_cell_type"] = broad
+                cols["distance"] = D[r, c]
+                pd.DataFrame(cols).to_csv(fh, header=False, index=False, float_format="%.6g")
+            row = {"cell_type" if level == "specific" else "broad_cell_type": ct}
+            if level == "specific":
+                row["broad_cell_type"] = broad
+            else:
+                row["specific_cell_types"] = pd.Series(fine).value_counts().to_dict()
+            row.update({"n_cells": n, "n_pairs": n_pairs, "n_species": n_sp,
+                        "cells_per_species": pd.Series(species).value_counts().to_dict()})
+            summary.append(row)
     summary = pd.DataFrame(summary)
     base = out_path
     for suffix in (".csv.gz", ".csv"):
@@ -956,24 +1193,37 @@ def write_pairwise_distances_by_cell_type(combined, use_rep, out_path, broad_map
             break
     summary_path = base + "_summary.csv"
     summary.to_csv(summary_path, index=False)
-    print(f"Wrote {summary['n_pairs'].sum():,} pairs to {out_path} "
-          f"(metric={metric}, space={use_rep}); per-type counts in {summary_path}.")
+    total = int(summary["n_pairs"].sum()) if len(summary) else 0
+    print(f"Wrote {total:,} pairs to {out_path} "
+          f"(level={level}, metric={metric}, space={use_rep}); per-group counts in "
+          f"{summary_path}.")
     return summary
 
 
 def main():
     args = parse_args()
-    combined = load_and_merge(DATASET_PATHS, CELL_TYPE_COLS, SPECIES, STUDY, TECHNOLOGY)
+    relabel = CELL_TYPE_RELABEL if (RELABEL_CELL_TYPES and not args.no_relabel) else None
+    combined = load_and_merge(DATASET_PATHS, CELL_TYPE_COLS, SPECIES, STUDY, TECHNOLOGY,
+                              relabel=relabel)
+    combined = add_broad_cell_type(combined, BROAD_CELL_TYPES)
+
+    if args.center is None:
+        center_study, center_species = CENTER_BY_STUDY, CENTER_BY_SPECIES
+    else:
+        center_study = args.center in ("study", "both")
+        center_species = args.center in ("species", "both")
+    centering_on = center_study or center_species
 
     use_rep = "X_uce"
     use_harmony = USE_HARMONY
     harmony_label = " (Harmony-integrated)"
+    center_label = ""
     if args.harmony_embedding:
         if args.harmony_params:
             print("NOTE: --harmony-embedding given, so --harmony-params is ignored "
                   "(Harmony is not re-run).")
-        if CENTER_BY_SPECIES:
-            print("Using the precomputed Harmony embedding; CENTER_BY_SPECIES is skipped.")
+        if centering_on:
+            print("Using the precomputed Harmony embedding; study/species centering is skipped.")
         combined = load_precomputed_harmony(combined, args.harmony_embedding,
                                             args.harmony_obs_names)
         use_rep = "X_uce_harmony"
@@ -989,24 +1239,30 @@ def main():
                 json.dump({"source": args.harmony_params, **harmony_kwargs}, f, indent=2)
 
         if use_harmony:
-            if CENTER_BY_SPECIES:
-                print("Both Harmony and CENTER_BY_SPECIES are on — "
+            if centering_on:
+                print("Both Harmony and study/species centering are on — "
                       "running Harmony only and skipping centering, since "
                       "combining both is usually redundant.")
             combined = run_harmony_integration(combined, use_rep=use_rep, **harmony_kwargs)
             use_rep = "X_uce_harmony"
-        elif CENTER_BY_SPECIES:
-            combined = center_by_species(combined)
-            use_rep = "X_uce_centered"
+        elif centering_on:
+            combined, use_rep, center_label = apply_centering(combined, center_study,
+                                                              center_species)
 
-    if WRITE_PAIRWISE_DISTANCES:
-        write_pairwise_distances_by_cell_type(
-            combined, use_rep=use_rep,
-            out_path=f"{OUT_PREFIX}_pairwise.csv" + (".gz" if PAIRWISE_COMPRESS else ""),
-            broad_map=BROAD_CELL_TYPES, group_col="cell_type_std", metric=METRIC,
-            max_cells=PAIRWISE_MAX_CELLS_PER_CELL_TYPE,
-            chunk_rows=PAIRWISE_CHUNK_ROWS, seed=PAIRWISE_SEED)
+    # --- Pairwise cell-cell distance files (specific and/or broad) ---
+    pairwise_levels = [] if "none" in args.pairwise_levels else list(dict.fromkeys(args.pairwise_levels))
+    if WRITE_PAIRWISE_DISTANCES and pairwise_levels:
+        ext = ".csv" + (".gz" if PAIRWISE_COMPRESS else "")
+        for level in pairwise_levels:
+            suffix = "_pairwise" if level == "specific" else "_pairwise_broad"
+            max_cells = (PAIRWISE_MAX_CELLS_PER_CELL_TYPE if level == "specific"
+                         else PAIRWISE_MAX_CELLS_PER_BROAD_TYPE)
+            write_pairwise_distances_by_cell_type(
+                combined, use_rep=use_rep, out_path=f"{OUT_PREFIX}{suffix}{ext}",
+                broad_map=BROAD_CELL_TYPES, level=level, metric=METRIC,
+                max_cells=max_cells, chunk_rows=PAIRWISE_CHUNK_ROWS, seed=PAIRWISE_SEED)
 
+    # Full specific-level centroid matrix (all cell types), as before.
     dist_df = centroid_distance_matrix(combined, metric=METRIC, use_rep=use_rep,
                                         species_order=SPECIES_PHYLO_ORDER)
     dist_df.to_csv(f"{OUT_PREFIX}_centroid_distances.csv")
@@ -1022,19 +1278,46 @@ def main():
 
     if use_harmony:
         title_suffix = harmony_label
-    elif CENTER_BY_SPECIES:
-        title_suffix = " (species-centered)"
     else:
-        title_suffix = ""
+        title_suffix = center_label
 
-    plot_heatmap(dist_df, f"{OUT_PREFIX}_heatmap.png",
-                 title=f"UCE centroid distances: species (phylogenetic order) | cell type{title_suffix}")
+    # --- Heatmaps: specific or broad level, optionally a selected subset ---
+    heatmap_level = args.heatmap_level
+    selected = resolve_heatmap_cell_types(combined, heatmap_level, args.heatmap_cell_types)
+    if selected is not None:
+        ct_order = selected  # user's listed order
+    elif heatmap_level == "broad":
+        ct_order = broad_cell_type_order(BROAD_CELL_TYPES, CELL_TYPE_ONTOLOGY_ORDER,
+                                         BROAD_CELL_TYPE_ORDER)
+    else:
+        ct_order = CELL_TYPE_ONTOLOGY_ORDER
 
-    dist_df_by_celltype = reorder_by_celltype(dist_df,
-                                               cell_type_order=CELL_TYPE_ONTOLOGY_ORDER,
+    heat_df = centroid_distance_matrix(combined, metric=METRIC, use_rep=use_rep,
+                                        species_order=SPECIES_PHYLO_ORDER,
+                                        cell_type_level=heatmap_level,
+                                        cell_types=selected, cell_type_order=ct_order)
+
+    # Default run (specific, all types) keeps the original file names.
+    tag = "" if heatmap_level == "specific" else "_broad"
+    if selected is not None:
+        tag += "_selected"
+    level_word = "broad cell type" if heatmap_level == "broad" else "cell type"
+    subset_note = f" [{len(selected)} selected]" if selected is not None else ""
+    if tag:
+        heat_df.to_csv(f"{OUT_PREFIX}_centroid_distances{tag}.csv")
+        print(f"Saved heatmap centroid distance matrix to "
+              f"{OUT_PREFIX}_centroid_distances{tag}.csv")
+
+    plot_heatmap(heat_df, f"{OUT_PREFIX}_heatmap{tag}.png",
+                 title=f"UCE centroid distances: species (phylogenetic order) | "
+                       f"{level_word}{subset_note}{title_suffix}")
+
+    heat_df_by_celltype = reorder_by_celltype(heat_df, cell_type_order=ct_order,
                                                species_order=SPECIES_PHYLO_ORDER)
-    plot_heatmap(dist_df_by_celltype, f"{OUT_PREFIX}_heatmap_by_celltype.png",
-                 title=f"UCE centroid distances: cell type (ontology order) | species{title_suffix}")
+    order_word = "selected order" if selected is not None else "ontology order"
+    plot_heatmap(heat_df_by_celltype, f"{OUT_PREFIX}_heatmap_by_celltype{tag}.png",
+                 title=f"UCE centroid distances: {level_word} ({order_word}) | "
+                       f"species{subset_note}{title_suffix}")
 
     plot_umap(combined, f"{OUT_PREFIX}_umap.png", use_rep=use_rep)
 
