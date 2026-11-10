@@ -79,6 +79,74 @@ ggsave("uceDist_bwPlot.png", uceDist_bwPlot, width = 6, height = 4, bg = "transp
 
 
 # 4.0 Line plot -----
+## All trophoblasts together ----
+uceMeans <- uceDist %>%
+  group_by(color) %>%
+  summarise(meanDist = mean(distance, na.rm = TRUE)) 
+
+# Pairwise tests on mean distance between colors
+pw <- pairwise.wilcox.test(uceDist$distance, uceDist$color,
+                           p.adjust.method = "BH")
+
+sigDF <- as.data.frame(as.table(pw$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  transmute(g1 = as.character(Var1), g2 = as.character(Var2), p = Freq) %>%
+  mutate(stars = case_when(p < 0.001 ~ "***",
+                           p < 0.01  ~ "**",
+                           p < 0.05  ~ "*",
+                           TRUE      ~ "ns")) %>%
+  left_join(uceMeans, by = c("g1" = "color")) %>% rename(x1 = meanDist) %>%
+  left_join(uceMeans, by = c("g2" = "color")) %>% rename(x2 = meanDist)
+
+# Place brackets above the tallest density curve
+maxDens <- uceDist %>%
+  group_by(color) %>%
+  summarise(peak = max(density(distance, na.rm = TRUE)$y)) %>%
+  pull(peak) %>% max()
+step <- 0.08 * maxDens
+
+sigDF <- sigDF %>%
+  mutate(xmin = pmin(x1, x2), xmax = pmax(x1, x2)) %>%
+  arrange(xmax - xmin) %>%                 # short brackets lowest
+  mutate(y = maxDens + step * row_number())
+
+ggplot(data = uceDist, aes(x = distance)) + 
+  geom_density(aes(color = color, fill = color), alpha = 0.25) + 
+  geom_vline(data = uceMeans,
+             aes(xintercept = meanDist, color = color),
+             linetype = "dashed", linewidth = 0.8, show.legend = FALSE) +
+  # brackets: horizontal bar + end ticks + stars
+  geom_segment(data = sigDF, aes(x = xmin, xend = xmax, y = y, yend = y),
+               inherit.aes = FALSE) +
+  geom_text(data = sigDF, aes(x = (xmin + xmax) / 2, y = y, label = stars),
+            vjust = -0.1, size = 5, inherit.aes = FALSE) +
+  scale_color_identity(guide = "legend",
+                       breaks = legendKey$color,
+                       labels = legendKey$cellType,
+                       name = "Placental Cell Type") + 
+  scale_fill_identity(guide = "legend",
+                      breaks = legendKey$color,
+                      labels = legendKey$cellType,
+                      name = "Placental Cell Type") +
+  theme_minimal() + 
+  labs(y = "Density", x = "UCE Embedding Distance", title = "All Pairwise Embedding Distances") + 
+  theme(axis.title.x = element_text(face = "bold", size = 12),   
+        axis.title.y = element_text(face = "bold", size = 12), 
+        legend.title = element_text(face = "bold", size = 10),
+        legend.text = element_text(face = "bold"),
+        axis.text.y = element_text(face = "bold"), 
+        axis.text.x = element_text(face = "bold"), 
+        plot.title = element_text(face = "bold", size = 14, hjust = 0.5)) 
+
+## Extravillous trophoblasts ----
+evt <- subtypePairwise %>%
+  filter(cell_type %in% c("evt", "invasive")) %>%
+  filter(species1 != species2)
+evtDown <- downsampleUCEDistances(evt, 100)
+evtDown$color <- "#DDAA33"
+uceDist <- bind_rows(macDown, endoDown)
+uceDist <- bind_rows(uceDist, evtDown)
+
 uceMeans <- uceDist %>%
   group_by(color) %>%
   summarise(meanDist = mean(distance, na.rm = TRUE)) 
@@ -138,6 +206,74 @@ ggplot(data = uceDist, aes(x = distance)) +
         plot.title = element_text(face = "bold", size = 14, hjust = 0.5)) 
 
 
+## Syncytiotrophoblasts ----
+stb <- subtypePairwise %>%
+  filter(cell_type %in% c("stb")) %>%
+  filter(species1 != species2)
+stbDown <- downsampleUCEDistances(stb, 100)
+stbDown$color <- "#DDAA33"
+uceDist <- bind_rows(macDown, endoDown)
+uceDist <- bind_rows(uceDist, stbDown)
+
+uceMeans <- uceDist %>%
+  group_by(color) %>%
+  summarise(meanDist = mean(distance, na.rm = TRUE)) 
+
+# Pairwise tests on mean distance between colors
+pw <- pairwise.wilcox.test(uceDist$distance, uceDist$color,
+                           p.adjust.method = "BH")
+
+sigDF <- as.data.frame(as.table(pw$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  transmute(g1 = as.character(Var1), g2 = as.character(Var2), p = Freq) %>%
+  mutate(stars = case_when(p < 0.001 ~ "***",
+                           p < 0.01  ~ "**",
+                           p < 0.05  ~ "*",
+                           TRUE      ~ "ns")) %>%
+  left_join(uceMeans, by = c("g1" = "color")) %>% rename(x1 = meanDist) %>%
+  left_join(uceMeans, by = c("g2" = "color")) %>% rename(x2 = meanDist)
+
+# Place brackets above the tallest density curve
+maxDens <- uceDist %>%
+  group_by(color) %>%
+  summarise(peak = max(density(distance, na.rm = TRUE)$y)) %>%
+  pull(peak) %>% max()
+step <- 0.08 * maxDens
+
+sigDF <- sigDF %>%
+  mutate(xmin = pmin(x1, x2), xmax = pmax(x1, x2)) %>%
+  arrange(xmax - xmin) %>%                 # short brackets lowest
+  mutate(y = maxDens + step * row_number())
+
+ggplot(data = uceDist, aes(x = distance)) + 
+  geom_density(aes(color = color, fill = color), alpha = 0.25) + 
+  geom_vline(data = uceMeans,
+             aes(xintercept = meanDist, color = color),
+             linetype = "dashed", linewidth = 0.8, show.legend = FALSE) +
+  # brackets: horizontal bar + end ticks + stars
+  geom_segment(data = sigDF, aes(x = xmin, xend = xmax, y = y, yend = y),
+               inherit.aes = FALSE) +
+  geom_text(data = sigDF, aes(x = (xmin + xmax) / 2, y = y, label = stars),
+            vjust = -0.1, size = 5, inherit.aes = FALSE) +
+  scale_color_identity(guide = "legend",
+                       breaks = legendKey$color,
+                       labels = legendKey$cellType,
+                       name = "Placental Cell Type") + 
+  scale_fill_identity(guide = "legend",
+                      breaks = legendKey$color,
+                      labels = legendKey$cellType,
+                      name = "Placental Cell Type") +
+  theme_minimal() + 
+  labs(y = "Density", x = "UCE Embedding Distance", title = "All Pairwise Embedding Distances") + 
+  theme(axis.title.x = element_text(face = "bold", size = 12),   
+        axis.title.y = element_text(face = "bold", size = 12), 
+        legend.title = element_text(face = "bold", size = 10),
+        legend.text = element_text(face = "bold"),
+        axis.text.y = element_text(face = "bold"), 
+        axis.text.x = element_text(face = "bold"), 
+        plot.title = element_text(face = "bold", size = 14, hjust = 0.5)) 
+  
+
 ## 4.1 human-macaque pairwise ----
 plotPairwiseUCEDist("human", "macaque")
 
@@ -150,10 +286,10 @@ plotPairwiseUCEDist("human", "mouse")
 ## 4.4 human-rabbit pairwise ----
 plotPairwiseUCEDist("human", "rabbit")
 
-## 4.4 human-rabbit pairwise ----
+## 4.4 human-goat pairwise ----
 plotPairwiseUCEDist("human", "goat")
 
-## 4.4 human-rabbit pairwise ----
+## 4.4 human-dog pairwise ----
 plotPairwiseUCEDist("human", "dog")
 
 
@@ -183,9 +319,6 @@ placentaPts <- filter(gainLoss, placenta == TRUE)
 placentaPts$turnoverMag_mult <- placentaPts$lossEnrich * placentaPts$gainEnrich
 placentaPts$turnoverMag_add <- placentaPts$lossEnrich + placentaPts$gainEnrich
 placentaPts$colMYA <- NA
-for(currNode in as.numeric(placentaPts$nodeName)){
-  placentaPts$colMYA[which(placentaPts$nodeName == currNode)] <- rev(zissou_15)[currNode]
-}
 placentaPts$broadCell_MYA <- paste(placentaPts$legendLabel, placentaPts$MYA, sep = "_")
 placentaPts <- placentaPts %>% 
   group_by(broadCell_MYA) %>% 
@@ -248,4 +381,23 @@ ggplot(data = turnoverDist) +
         axis.text.y = element_text(face = "bold"), 
         axis.text.x = element_text(face = "bold"), 
         plot.title = element_text(face = "bold", size = 14, hjust = 0.5)) 
-  
+
+## 6.5 Discretized ----
+turnoverDist$turnoverMagnitude <- c("Low Turnover", "Moderate Turnover", "High Turnover")
+turnoverDist$turnoverMagnitude <- factor(turnoverDist$turnoverMagnitude, levels = c("Low Turnover", "Moderate Turnover", "High Turnover"))
+ggplot(data = turnoverDist) + 
+  geom_col(data = turnoverDist, aes(x = turnoverMagnitude, y = meanDist, fill = ptColor)) + 
+  theme_minimal() + 
+  labs(x = "Turnover Magnitude within Placental Mammals", 
+       y = "Mean UCE Embedding Distance") +
+  scale_fill_identity(guide = "legend",
+                      breaks = legendKey$ptColor,
+                      labels = legendKey$cellType,
+                      name = "Placental Cell Type") + 
+  theme(axis.title.x = element_text(face = "bold", size = 12),   
+        axis.title.y = element_text(face = "bold", size = 12), 
+        legend.title = element_text(face = "bold", size = 10),
+        legend.text = element_text(face = "bold"),
+        axis.text.y = element_text(face = "bold"), 
+        axis.text.x = element_text(face = "bold"), 
+        plot.title = element_text(face = "bold", size = 14, hjust = 0.5)) 

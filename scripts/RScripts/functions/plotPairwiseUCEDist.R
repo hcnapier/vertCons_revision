@@ -1,6 +1,6 @@
 require(dplyr)
 require(stringr)
-plotPairwiseUCEDist <- function(firstSpecies, secondSpecies){
+plotPairwiseUCEDist <- function(firstSpecies, secondSpecies, data = uceDist){
   title <- paste(paste(firstSpecies, secondSpecies, sep = "-"), "Pairwise Embedding Distance", sep = " ") %>% str_to_title()
   
   subset_uceDist <- uceDist %>%
