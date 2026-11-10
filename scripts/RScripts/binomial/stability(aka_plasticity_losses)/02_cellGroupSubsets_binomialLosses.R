@@ -47,7 +47,7 @@ muscleGroupBinom_loss <- subsetAndBinomCellTypeList(cellTypeList = muscleTypes,
 ### Combine for plotting
 muscle_binom_loss <- do.call(rbind, muscleGroupBinom_loss)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
-saveRDS(muscle_binom, "muscle_binom_loss.rds")
+saveRDS(muscle_binom_loss, "muscle_binom_loss.rds")
 
 ## 1.5 Cardiomyocytes ----
 cardio_binom_loss <- rbind(muscleGroupBinom_loss[["cardiomyocyte_developing"]], muscleGroupBinom_loss[["cardiomyocyte_adult"]])
@@ -79,13 +79,13 @@ placentaTypes <- c("placentalNeuron",
                    "endothelialPlacental")
 ### Separate subtypes ----
 placentaGroupBinom_loss <- subsetAndBinomCellTypeList(cellTypeList = placentaTypes,
-                                                           fullDF = nodeLosses, 
-                                                           totalNodeRegions = totalNodeRegions_losses, 
-                                                           totalNodeLosses = totalNodeLosses, 
-                                                           nodeNames = nodeNames_losses, 
-                                                           MYA = MYA_losses, 
-                                                           groupName = "Placenta", 
-                                                           type = "loss")
+                                                      fullDF = nodeLosses, 
+                                                      totalNodeRegions = totalNodeRegions_losses,
+                                                      totalNodeLosses = totalNodeLosses,
+                                                      nodeNames = nodeNames_losses,
+                                                      MYA = MYA_losses,
+                                                      groupName = "Placenta",
+                                                      type = "loss")
 #### Combine for plotting
 placenta_binom_loss <- do.call(rbind, placentaGroupBinom_loss)
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
