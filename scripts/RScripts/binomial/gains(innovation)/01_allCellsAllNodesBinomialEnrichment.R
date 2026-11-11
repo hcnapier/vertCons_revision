@@ -27,10 +27,10 @@ wang2026$Cell.Type <- paste("placental", wang2026$Cell.Type, sep = "_")
 # change cell type names to match Domcke dataset
 wang2026 <- wang2026 %>%
   mutate(Cell.Type = case_when(
-    str_detect(Cell.Type, "Endo") ~ "endothelialPlacental",
-    str_detect(Cell.Type, "HB") ~ "macrophagePlacental",
-    str_detect(Cell.Type, "SCT") ~ "syncitiotrophoblastCytotrophoblast",
-    str_detect(Cell.Type, "EVT") ~ "extravillousTrophoblast",
+    str_detect(Cell.Type, "Endo") ~ "endothelialPlacental.developing",
+    str_detect(Cell.Type, "HB") ~ "macrophagePlacental.developing",
+    str_detect(Cell.Type, "SCT") ~ "syncitiotrophoblastCytotrophoblast.developing",
+    str_detect(Cell.Type, "EVT") ~ "extravillousTrophoblast.developing",
     TRUE ~ Cell.Type  # Keeps original value if no match
   ))
 wang2026$Cell.Type <- paste("wang26", wang2026$Cell.Type, sep = "_")
@@ -44,7 +44,6 @@ names(wang2026) <- c("CellType", "Node", "Regions", "nRegions")
 wang2026$mappedFraction <- wang2026$Regions/wang2026$nRegions
 regions <- bind_rows(regions, wang2026)
 regions$Regions <- NULL
-##
 
 ## 0.4 Process data ----
 ## Region counts
@@ -55,6 +54,53 @@ totalNodeRegions <- regions %>%
   select(Node, nMapped) %>%
   group_by(Node) %>%
   summarize(nRegions = sum(nMapped))
+
+### Group all replicates of the same cell type ----
+# Remove unused Wang cell types 
+remove_list <- c("wang26_placental_VCT", 
+                 "wang26_placental_T", 
+                 "wang26_placental_PV",
+                 "wang26_placental_M", 
+                 "wang26_placental_FB", 
+                 "wang26_placental_Erythrocyte",
+                 "wang26_placental_Epi", 
+                 "wang26_placental_dNK", 
+                 "wang26_placental_Dec", 
+                 "wang26_placental_cDC", 
+                 "wang26_placental_B")
+regions <- regions %>%
+  filter(!CellType %in% remove_list)
+regions$CellType <- str_remove(regions$CellType, "wang26_")
+cellTypeNames <- regions$CellType
+newNames <- rep(NA, length(cellTypeNames))
+for(i in 1:length(cellTypeNames)){
+  cellName = cellTypeNames[i]
+  if(str_detect(cellName, "Cd4")){
+    newNames[i] <- cellName
+  }else if(str_detect(cellName, "Cd8")){
+    newNames[i] <- cellName
+  }else if(str_detect(cellName, "Il2")){
+    newNames[i] <- cellName
+  }else{
+    newName <- gsub("\\d+(?=\\.)", "", cellName, perl = TRUE)
+    newNames[i] <- newName
+  }
+}
+regions$CellType <- newNames
+cellTypeRegions <- regions %>%
+  select(c(CellType, nRegions)) %>%
+  distinct() %>%
+  group_by(CellType) %>%
+  summarise(nRegions = sum(nRegions))
+regions <- regions %>%
+  group_by(CellType, Node) %>%
+  summarise(
+    nMapped = sum(nMapped, na.rm = TRUE),
+    .groups = "drop"
+  )
+regions <- inner_join(regions,cellTypeRegions)
+regions$mappedFraction <- regions$nMapped/regions$nRegions
+
 ## Cell type regions
 cellTypeRegions <- regions$nRegions %>% unique()
 cellTypes <- regions$CellType %>% unique()
@@ -78,6 +124,10 @@ backgroundPrMat <- matrix(ncol = nNodes, nrow = nCellTypes)
 colnames(backgroundPrMat) <- c("Human", paste("Node", seq(0,17), sep = ""))
 rownames(backgroundPrMat) <- totalCellTypeRegions$CellType
 
+enrichMat <- matrix(ncol = nNodes, nrow = nCellTypes)
+colnames(enrichMat) <- c("Human", paste("Node", seq(0,17), sep = ""))
+rownames(enrichMat) <- totalCellTypeRegions$CellType
+
 binomPvalMat <- matrix(ncol = nNodes, nrow = nCellTypes)
 colnames(binomPvalMat) <- c("Human", paste("Node", seq(0,17), sep = ""))
 rownames(binomPvalMat) <- totalCellTypeRegions$CellType
@@ -100,6 +150,7 @@ for(currNode in nodes){
     test <- binom.test(nSuccesses[i], nTrials, nullPrs[i], alternative = "two.sided")
     binomPrMat[currCellType, currNodeName] <- test$estimate
     binomPvalMat[currCellType, currNodeName] <- test$p.value
+    enrichMat[currCellType, currNodeName] <- (nSuccesses[i]/nTrials)/nullPrs[i]
   }
 }
 binomSigMat <- binomPvalMat < 0.05
@@ -107,30 +158,30 @@ sum(binomSigMat)
 
 # 2.0 Compute enrichment ----
 # Enrichment = (successes/trials)/pr success
-nMapMat <- regions %>%
-  select(CellType, nMapped, Node) %>%
-  pivot_wider(
-    names_from = Node,   
-    values_from = nMapped 
-  ) 
-nMapMat <- data.frame(nMapMat)
-rownames(nMapMat) <- nMapMat$CellType
-nMapMat$CellType <- NULL
-nMapMat <- as.matrix(nMapMat)
-colnames(nMapMat) <- nodeNames
-
-nMat <- regions %>%
-  select(CellType, nRegions, Node) %>%
-  pivot_wider(
-    names_from = Node,
-    values_from = nRegions
-  ) 
-nMat <- data.frame(nMat)
-rownames(nMat) <- nMat$CellType
-nMat$CellType <- NULL
-nMat <- as.matrix(nMat)
-colnames(nMat) <- nodeNames
-enrichMat <- (nMapMat/nMat)/backgroundPrMat
+# nMapMat <- regions %>%
+#   select(CellType, nMapped, Node) %>%
+#   pivot_wider(
+#     names_from = Node,   
+#     values_from = nMapped 
+#   ) 
+# nMapMat <- data.frame(nMapMat)
+# rownames(nMapMat) <- nMapMat$CellType
+# nMapMat$CellType <- NULL
+# nMapMat <- as.matrix(nMapMat)
+# colnames(nMapMat) <- nodeNames
+# 
+# nMat <- regions %>%
+#   select(CellType, nRegions, Node) %>%
+#   pivot_wider(
+#     names_from = Node,
+#     values_from = nRegions
+#   ) 
+# nMat <- data.frame(nMat)
+# rownames(nMat) <- nMat$CellType
+# nMat$CellType <- NULL
+# nMat <- as.matrix(nMat)
+# colnames(nMat) <- nodeNames
+# enrichMat <- (nMapMat/nMat)/backgroundPrMat
 
 # Save output ----
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
