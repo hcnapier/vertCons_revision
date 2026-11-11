@@ -281,8 +281,11 @@ ggsave("placentaGainLossCorr.png", placentaGainLossCorr, width = 6.7, height = 4
 ## 4.1 Compute turnover magnitude score ----
 placentaPts$turnoverMag_mult <- placentaPts$lossEnrich * placentaPts$gainEnrich
 placentaPts$turnoverMag_add <- placentaPts$lossEnrich + placentaPts$gainEnrich
+placentaPts <- placentaPts %>%
+  filter(!nodeName %in% c(1,2,3))
 placentaPts$colMYA <- NA
 for(currNode in as.numeric(placentaPts$nodeName)){
+  print(currNode)
   placentaPts$colMYA[which(placentaPts$nodeName == currNode)] <- rev(zissou_15)[currNode-2]
 }
 placentaPts$broadCell_MYA <- paste(placentaPts$legendLabel, placentaPts$MYA, sep = "_")
@@ -321,8 +324,8 @@ placentaTurnMag_add <- ggplot(data = recentPlacentaPts, aes(y = avg_turnMag_add,
     map_signif_level = TRUE, textsize = 6, color = "black") +
   geom_signif(
     comparisons = list(c("Endothelial Cell", "Macrophage")), 
-    map_signif_level = TRUE, textsize = 6, y_position = 3.0, color = "black") +
-  ylim(0, 4.75) + 
+    map_signif_level = TRUE, textsize = 4, y_position = 3.0, color = "black") +
+  ylim(0, 5) + 
   theme(axis.title.x = element_text(face = "bold", size = 12), 
         axis.text.x = element_text(face = "bold", size = 10), 
         axis.title.y = element_text(face = "bold", size = 12), 
