@@ -29,10 +29,10 @@ wangLosses$CellType <- str_remove(wangLosses$CellType, "_.*")
 wangLosses$CellType <- paste("placental", wangLosses$CellType, sep = "_")
 wangLosses <- wangLosses %>%
   mutate(CellType = case_when(
-    str_detect(CellType, "Endo") ~ "endothelialPlacental",
-    str_detect(CellType, "HB") ~ "macrophagePlacental",
-    str_detect(CellType, "SCT") ~ "syncitiotrophoblastCytotrophoblast",
-    str_detect(CellType, "EVT") ~ "extravillousTrophoblast",
+    str_detect(CellType, "Endo") ~ "endothelialPlacental.developing",
+    str_detect(CellType, "HB") ~ "macrophagePlacental.developing",
+    str_detect(CellType, "SCT") ~ "syncitiotrophoblastCytotrophoblast.developing",
+    str_detect(CellType, "EVT") ~ "extravillousTrophoblast.developing",
     TRUE ~ CellType  # Keeps original value if no match
   ))
 wangLosses$CellType <- paste("wang26", wangLosses$CellType, sep = "_")
@@ -67,6 +67,48 @@ nodeLosses$nodeName <- paste("Node",nodeLosses$Node, sep = "")
 nodeNames_losses <- nodeLosses$nodeName %>% unique()
 nodeLosses$nRegions <- nodeLosses$nNodeRegions
 colOrder <- c("Node1", "Node2", "Node3", "Node4", "Node5", "Node6", "Node7", "Node8", "Node9", "Node10", "Node11", "Node12", "Node13", "Node14", "Node15", "Node16")
+### Group all replicates of the same cell type ----
+# Remove unused Wang cell types 
+remove_list <- c("wang26_placental_VCT", 
+                 "wang26_placental_T", 
+                 "wang26_placental_PV",
+                 "wang26_placental_M", 
+                 "wang26_placental_FB", 
+                 "wang26_placental_Erythrocyte",
+                 "wang26_placental_Epi", 
+                 "wang26_placental_dNK", 
+                 "wang26_placental_Dec", 
+                 "wang26_placental_cDC", 
+                 "wang26_placental_B")
+nodeLosses <- nodeLosses %>%
+  filter(!CellType %in% remove_list)
+nodeLosses$CellType <- str_remove(nodeLosses$CellType, "wang26_")
+cellTypeNames <- nodeLosses$CellType
+newNames <- rep(NA, length(cellTypeNames))
+for(i in 1:length(cellTypeNames)){
+  cellName = cellTypeNames[i]
+  if(str_detect(cellName, "Cd4")){
+    newNames[i] <- cellName
+  }else if(str_detect(cellName, "Cd8")){
+    newNames[i] <- cellName
+  }else if(str_detect(cellName, "Il2")){
+    newNames[i] <- cellName
+  }else{
+    newName <- gsub("\\d+(?=\\.)", "", cellName, perl = TRUE)
+    newNames[i] <- newName
+  }
+}
+nodeLosses$CellType <- newNames
+nodeLosses <- nodeLosses %>%
+  group_by(CellType, Node) %>%
+  summarise(
+    nSuccess = sum(nSuccess, na.rm = TRUE),
+    nNodeRegions = sum(nNodeRegions, na.rm = TRUE),
+    .groups = "drop"
+  )
+nodeLosses$propSuccess <- nodeLosses$nSuccess/nodeLosses$nNodeRegions
+nodeLosses$nRegions <- nodeLosses$nNodeRegions
+
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 saveRDS(nodeLosses, "nodeLosses.rds")
 
@@ -105,6 +147,10 @@ nullPrMat <- matrix(ncol = nNodes, nrow = nCellTypes)
 colnames(nullPrMat) <- nodeNames_losses
 rownames(nullPrMat) <- totalCellTypeRegions_losses$CellType
 
+enrichMat_loss <- matrix(ncol = nNodes, nrow = nCellTypes)
+colnames(enrichMat_loss) <- nodeNames_losses
+rownames(enrichMat_loss) <- totalCellTypeRegions_losses$CellType
+
 binomPvalMat_loss <- matrix(ncol = nNodes, nrow = nCellTypes)
 colnames(binomPvalMat_loss) <- nodeNames_losses
 rownames(binomPvalMat_loss) <- totalCellTypeRegions_losses$CellType
@@ -128,6 +174,7 @@ for(currNode in nodes){
     test <- binom.test(nSuccesses, nTrials, nullPr, alternative = "two.sided")
     binomPrMat_loss[currCellType, currNodeName] <- test$estimate[[1]]
     binomPvalMat_loss[currCellType, currNodeName] <- test$p.value[[1]]
+    enrichMat_loss[currCellType, currNodeName] <- (nSuccesses/nTrials)/nullPr
   }
 }
 binomSigMat_loss <- binomPvalMat_loss < 0.05
@@ -139,38 +186,38 @@ binomPrMat_loss <- binomPrMat_loss[, colOrder]
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
 saveRDS(binomPrMat_loss, "binomPrMat_loss.rds")
 saveRDS(binomPvalMat_loss, "binomPvalMat_loss.rds")
-saveRDS(nullPrMat_loss, "nullPrMat_loss.rds")
+saveRDS(nullPrMat, "nullPrMat_loss.rds")
 
 # 2.0 Compute enrichment ----
 # Enrichment = (successes/trials)/pr success
-lossMat <- nodeLosses %>%
-  select(CellType, nSuccess, Node) %>%
-  pivot_wider(
-    names_from = Node,   
-    values_from = nSuccess 
-  ) 
-lossMat <- data.frame(lossMat)
-rownames(lossMat) <- lossMat$CellType
-lossMat$CellType <- NULL
-lossMat <- as.matrix(lossMat)
-colOrder <- c("X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "X9", "X10", "X11", "X12", "X13", "X14", "X15", "X16")
-lossMat <- lossMat[, colOrder]
-colnames(lossMat) <- nodeNames_losses
-
-nMat_loss <- nodeLosses %>%
-  select(CellType, nRegions, Node) %>%
-  pivot_wider(
-    names_from = Node,
-    values_from = nRegions
-  ) 
-nMat_loss <- data.frame(nMat_loss)
-rownames(nMat_loss) <- nMat_loss$CellType
-nMat_loss$CellType <- NULL
-nMat_loss <- as.matrix(nMat_loss)
-colOrder <- c("X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "X9", "X10", "X11", "X12", "X13", "X14", "X15", "X16")
-nMat_loss <- nMat_loss[, colOrder]
-colnames(nMat_loss) <- nodeNames_losses
-enrichMat_loss <- (lossMat/nMat_loss)/nullPrMat
+# lossMat <- nodeLosses %>%
+#   select(CellType, nSuccess, Node) %>%
+#   pivot_wider(
+#     names_from = Node,   
+#     values_from = nSuccess 
+#   ) 
+# lossMat <- data.frame(lossMat)
+# rownames(lossMat) <- lossMat$CellType
+# lossMat$CellType <- NULL
+# lossMat <- as.matrix(lossMat)
+# colOrder <- c("X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "X9", "X10", "X11", "X12", "X13", "X14", "X15", "X16")
+# lossMat <- lossMat[, colOrder]
+# colnames(lossMat) <- nodeNames_losses
+# 
+# nMat_loss <- nodeLosses %>%
+#   select(CellType, nRegions, Node) %>%
+#   pivot_wider(
+#     names_from = Node,
+#     values_from = nRegions
+#   ) 
+# nMat_loss <- data.frame(nMat_loss)
+# rownames(nMat_loss) <- nMat_loss$CellType
+# nMat_loss$CellType <- NULL
+# nMat_loss <- as.matrix(nMat_loss)
+# colOrder <- c("X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "X9", "X10", "X11", "X12", "X13", "X14", "X15", "X16")
+# nMat_loss <- nMat_loss[, colOrder]
+# colnames(nMat_loss) <- nodeNames_losses
+# enrichMat_loss <- (lossMat/nMat_loss)/nullPrMat
 
 # Save
 setwd("~/Work/VertGenLab/Projects/vertCons/code/vertCons_revision/scripts/RScripts/rData")
